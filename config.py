@@ -14,8 +14,17 @@ FUNDS = [
     {"name": "SL JPM Natural Resources", "id": "GB00B61JR401:GBP"},
     {"name": "SL Ishares Pacific", "id": "GB00B849FB47:GBP"},
     {"name": "SL L&G Global Infrastructure", "id": "GB00BF0TZK67:GBP"},
-    {"name": "HSBC Islamic Funds", "id": "LU2092165666:GBP"},
+    {"name": "HSBC Islamic Global Equity", "id": "LU2092165666:GBP"},
     {"name": "SL Macquarie Global Infrastructure Secs", "id": "GB00B3K5WJ87:GBP"},
+    {"name": "Robeco Emerging Stars Equities G GBP", "id": "LU1408526199:GBP"},
+    {"name": "JPMorgan Emerging Markets ESG Equity C", "id": "GB00BL0DTP33:GBP"},
+    {"name": "Schroder Life UK Smaller Companies", "id": "GB00B0ZGQD71:GBP"},
+    {"name": "Artemis UK Special Situations Fund I Acc", "id": "GB00B2PLJQ03:GBP"},
+    {"name": "L&G PMC North America Equity Index 3 Pen", "id": "GB00B3VGBC62:GBP"},
+    {"name": "L&G PMC Europe Ex UK Equity Index 3 Pen", "id": "GB00B4YKRJ18:GBP"},
+    {"name": "L&G PMC Japan Equity Index 3 Pen", "id": "GB00B4ZFV486:GBP"},
+    {"name": "L&G PMC Asia Pac ex Japan Dev Eq Idx 3 Pen", "id": "GB00B4WT1Y33:GBP"},
+    {"name": "L&G Future World ESG Optimised UK Index Fund", "id": "GB00BJH4XW03:GBP"},
 ]
 
 # --- Date Settings ---
@@ -86,4 +95,88 @@ HOLDINGS = [
     # Indices / Benchmarks
     {"fund_id": "YF:XU030.IS", "display_name": "BIST 30"},
     {"fund_id": "YF:^FTSE", "display_name": "FTSE 100"},
+]
+
+# --- Yahoo Finance Tickers ---
+# Format: (ticker, display_name, asset_type)
+# Asset types: Index, ETF, Commodity, Stock
+
+YAHOO_TICKERS = [
+    # Indices
+    ("^GSPC", "S&P 500", "Index"),
+    ("^FTSE", "FTSE 100", "Index"),
+    ("^FTMC", "FTSE 250", "Index"),
+    ("XU030.IS", "BIST 30", "Index"),
+    ("^N225", "Nikkei 225", "Index"),
+    ("^STOXX50E", "Euro Stoxx 50", "Index"),
+    ("^IXIC", "NASDAQ Composite", "Index"),
+    # Global Equity ETFs
+    ("URTH", "MSCI World", "ETF"),
+    ("EEM", "MSCI Emerging Markets", "ETF"),
+    ("VWRL.L", "FTSE All World", "ETF"),
+    ("CSP1.L", "iShares Core S&P 500 ETF", "ETF"),
+    ("XDJP.L", "Xtr Nikkei 225 UCITS ETF", "ETF"),
+    ("HMCH.L", "HSBC MSCI China UCITS ETF", "ETF"),
+    ("HCAN.L", "HSBC MSCI Canada UCITS ETF", "ETF"),
+    ("DFEU.L", "iShares Europe Def UETF", "ETF"),
+    ("XAIX.L", "X AI and Big Data UCITS ETF", "ETF"),
+    ("AINF.L", "iShares AI Infrastructure ETF", "ETF"),
+    ("UIFS.L", "iShares S&P 500 Financials ETF", "ETF"),
+    ("FCBR.L", "FT Nasdaq Cs UCITS ETF", "ETF"),
+    ("QANT.L", "iShares Quantum Computing ETF", "ETF"),
+    ("QWTM.L", "WisdomTree Quantum Computing ETF", "ETF"),
+    ("NATP.L", "Future of Defence UCITS ETF", "ETF"),
+    ("SPGP.L", "iShares Gold Producers ETF", "ETF"),
+    ("CSCA.L", "iShares MSCI Canada UCITS ETF", "ETF"),
+    ("PLAY.L", "iShares Digital Entertainment ETF", "ETF"),
+    # Commodities — Futures
+    ("GC=F", "Gold Futures", "Commodity"),
+    ("SI=F", "Silver Futures", "Commodity"),
+    ("HG=F", "Copper Futures", "Commodity"),
+    ("ZW=F", "Wheat Futures", "Commodity"),
+    ("CL=F", "Crude Oil Futures", "Commodity"),
+    ("NG=F", "Natural Gas Futures", "Commodity"),
+    ("CC=F", "Cocoa Futures", "Commodity"),
+    # Commodity ETCs (London listed, GBP)
+    ("SGLN.L", "iShares Physical Gold ETC", "Commodity"),
+    ("SSLN.L", "iShares Physical Silver ETC", "Commodity"),
+    ("PHPP.L", "WT Physical Precious Metals ETC", "Commodity"),
+    ("COPB.L", "WisdomTree Copper ETC", "Commodity"),
+    ("WEAP.L", "WisdomTree Wheat ETC", "Commodity"),
+    ("MINE.L", "iShares Copper Miners ETF", "Commodity"),
+    ("NRGT.L", "WisdomTree Energy Transition ETC", "Commodity"),
+    ("NGSP.L", "WisdomTree Natural Gas ETC", "Commodity"),
+    ("COCO", "WisdomTree Cocoa", "Commodity"),
+    # Currencies & FX
+    ("GBPUSD=X", "GBP/USD", "Index"),
+    ("XAUUSD=X", "Gold / USD (Spot)", "Commodity"),
+    ("CNY=X", "USD/CNY", "Index"),
+    # Crypto
+    ("BTC-GBP", "Bitcoin GBP", "Commodity"),
+    ("ETH-GBP", "Ethereum GBP", "Commodity"),
+    # Individual Stocks
+    ("GOOG", "Alphabet (Google)", "Stock"),
+    ("AMZN", "Amazon", "Stock"),
+    ("NVDA", "NVIDIA", "Stock"),
+    ("ASML", "ASML Holding", "Stock"),
+    ("QCOM", "Qualcomm", "Stock"),
+    ("MU", "Micron Technology", "Stock"),
+    ("JPM", "JPMorgan Chase", "Stock"),
+    ("NVO", "Novo Nordisk", "Stock"),
+    ("LLY", "Eli Lilly", "Stock"),
+    ("GSK.L", "GSK plc", "Stock"),
+    ("HSBA.L", "HSBC Holdings", "Stock"),
+    ("DATA.L", "GlobalData plc", "Stock"),
+    ("BRBY.L", "Burberry Group", "Stock"),
+    ("QQ.L", "QinetiQ Group", "Stock"),
+    ("HFG.L", "Hilton Food Group", "Stock"),
+    ("CCH.L", "Coca-Cola HBC", "Stock"),
+    ("BA.L", "BAE Systems", "Stock"),
+    # L&G & Schroder Pension Fund Proxies
+    ("ISF.L", "L&G UK Equity ESG (proxy: FTSE 100 ETF)", "ETF"),
+    ("VERX.L", "L&G European Ex UK Equity (proxy: VERX ETF)", "ETF"),
+    ("CUKS.L", "Schroder Life UK Smaller Cos (proxy: CUKS ETF)", "ETF"),
+    ("^N225.L", "L&G Japan Equity Index (proxy: LGIJPN ETF)", "ETF"),
+    ("NUSA.L", "L&G North America Equity (proxy: NUSA ETF)", "ETF"),
+    ("AFMC.L", "Artemis UK Special Situations (proxy: AFMC ETF)", "ETF"),
 ]

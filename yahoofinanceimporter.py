@@ -1,6 +1,7 @@
 # yahoofinanceimporter.py
 # Imports benchmark and index data from Yahoo Finance into the database.
 # Checks latest date per ticker and only adds new rows — safe to run repeatedly.
+# Always reimports last 3 days to catch any Yahoo data corrections.
 #
 # To add a new ticker: just add it to the TICKERS list below.
 #
@@ -12,89 +13,15 @@ import sys
 import yfinance as yf
 from datetime import datetime, timedelta
 import database
+import config
 
-# ── TICKER LIST ────────────────────────────────────────────────
-# Add or remove tickers here. Format: (ticker, display_name)
-# To add a new one, just append a new line in the same format.
-
-TICKERS = [
-    # ── Indices
-    ("^GSPC", "S&P 500", "Index"),
-    ("^FTSE", "FTSE 100", "Index"),
-    ("^FTMC", "FTSE 250", "Index"),
-    ("XU030.IS", "BIST 30", "Index"),
-    ("^N225", "Nikkei 225", "Index"),
-    ("^STOXX50E", "Euro Stoxx 50", "Index"),
-    ("^IXIC", "NASDAQ Composite", "Index"),
-    # ── Global Equity ETFs
-    ("URTH", "MSCI World", "ETF"),
-    ("EEM", "MSCI Emerging Markets", "ETF"),
-    ("VWRL.L", "FTSE All World", "ETF"),
-    ("CSP1.L", "iShares Core S&P 500 ETF", "ETF"),
-    ("XDJP.L", "Xtr Nikkei 225 UCITS ETF", "ETF"),
-    ("HMCH.L", "HSBC MSCI China UCITS ETF", "ETF"),
-    ("HCAN.L", "HSBC MSCI Canada UCITS ETF", "ETF"),
-    ("DFEU.L", "iShares Europe Def UETF", "ETF"),
-    ("XAIX.L", "X AI and Big Data UCITS ETF", "ETF"),
-    ("AINF.L", "iShares AI Infrastructure ETF", "ETF"),
-    ("UIFS.L", "iShares S&P 500 Financials ETF", "ETF"),
-    ("FCBR.L", "FT Nasdaq Cs UCITS ETF", "ETF"),
-    ("QANT.L", "iShares Quantum Computing ETF", "ETF"),
-    ("QWTM.L", "WisdomTree Quantum Computing ETF", "ETF"),
-    ("NATP.L", "Future of Defence UCITS ETF", "ETF"),
-    ("SPGP.L", "iShares Gold Producers ETF", "ETF"),
-    ("CSCA.L", "iShares MSCI Canada UCITS ETF", "ETF"),
-    ("PLAY.L", "iShares Digital Entertainment ETF", "ETF"),
-    # ── Commodities — Futures
-    ("GC=F", "Gold Futures", "Commodity"),
-    ("SI=F", "Silver Futures", "Commodity"),
-    ("HG=F", "Copper Futures", "Commodity"),
-    ("ZW=F", "Wheat Futures", "Commodity"),
-    ("CL=F", "Crude Oil Futures", "Commodity"),
-    ("NG=F", "Natural Gas Futures", "Commodity"),
-    ("CC=F", "Cocoa Futures", "Commodity"),
-    # ── Commodity ETCs (London listed, GBP)
-    ("SGLN.L", "iShares Physical Gold ETC", "Commodity"),
-    ("SSLN.L", "iShares Physical Silver ETC", "Commodity"),
-    ("PHPP.L", "WT Physical Precious Metals ETC", "Commodity"),
-    ("COPB.L", "WisdomTree Copper ETC", "Commodity"),
-    ("WEAP.L", "WisdomTree Wheat ETC", "Commodity"),
-    ("MINE.L", "iShares Copper Miners ETF", "Commodity"),
-    ("NRGT.L", "WisdomTree Energy Transition ETC", "Commodity"),
-    ("BRNB.L", "iShares Brent Oil ETC", "Commodity"),
-    ("NGSP.L", "WisdomTree Natural Gas ETC", "Commodity"),
-    ("COCO", "WisdomTree Cocoa", "Commodity"),
-    # ── Currencies & FX
-    ("GBPUSD=X", "GBP/USD", "Index"),
-    ("CNY=X", "USD/CNY", "Index"),
-    # ── Crypto
-    ("BTC-GBP", "Bitcoin GBP", "Commodity"),
-    ("ETH-GBP", "Ethereum GBP", "Commodity"),
-    # ── Individual Stocks
-    ("GOOG", "Alphabet (Google)", "Stock"),
-    ("AMZN", "Amazon", "Stock"),
-    ("NVDA", "NVIDIA", "Stock"),
-    ("ASML", "ASML Holding", "Stock"),
-    ("QCOM", "Qualcomm", "Stock"),
-    ("MU", "Micron Technology", "Stock"),
-    ("JPM", "JPMorgan Chase", "Stock"),
-    ("NVO", "Novo Nordisk", "Stock"),
-    ("LLY", "Eli Lilly", "Stock"),
-    ("GSK.L", "GSK plc", "Stock"),
-    ("HSBA.L", "HSBC Holdings", "Stock"),
-    ("DATA.L", "GlobalData plc", "Stock"),
-    ("BRBY.L", "Burberry Group", "Stock"),
-    ("QQ.L", "QinetiQ Group", "Stock"),
-    ("HFG.L", "Hilton Food Group", "Stock"),
-    ("CCH.L", "Coca-Cola HBC", "Stock"),
-    ("BA.L", "BAE Systems", "Stock"),
-]
+TICKERS = config.YAHOO_TICKERS
 
 # ── SETTINGS ───────────────────────────────────────────────────
 
 FIRST_RUN_DAYS = 730  # How many days of history to fetch on first import
+REIMPORT_DAYS = 3  # Always reimport this many recent days to catch Yahoo corrections
 FUND_ID_PREFIX = "YF"  # Prefix added to fund_id to avoid clashes with FT funds
-# e.g. ticker ^GSPC becomes fund_id "YF:^GSPC"
 
 
 # ── CORE FUNCTIONS ─────────────────────────────────────────────
@@ -169,7 +96,8 @@ def fetch_yahoo(ticker, start_date, end_date):
 def process_ticker(conn, ticker, name, asset_type=None):
     """
     Check latest date in DB for this ticker, fetch only what's missing,
-    and save to database.
+    and save to database. Always reimports the last REIMPORT_DAYS days
+    to catch any corrections Yahoo may have made.
     """
     fund_id = make_fund_id(ticker)
     fund_name = f"{name} ({ticker})"
@@ -177,20 +105,31 @@ def process_ticker(conn, ticker, name, asset_type=None):
     # Check what we already have
     latest_date = database.get_latest_date(conn, fund_id)
 
+    # Date that is REIMPORT_DAYS before today
+    reimport_from = (datetime.today() - timedelta(days=REIMPORT_DAYS)).strftime(
+        "%Y-%m-%d"
+    )
+
     if latest_date:
-        # Delete last 3 days and reimport to catch any Yahoo corrections
-        delete_from = (datetime.today() - timedelta(days=3)).strftime("%Y-%m-%d")
+        # Delete the last REIMPORT_DAYS to allow fresh reimport
         deleted = conn.execute(
             "DELETE FROM fund_prices WHERE fund_id=? AND date >= ?",
-            (fund_id, delete_from),
+            (fund_id, reimport_from),
         )
         conn.commit()
         if deleted.rowcount > 0:
             print(
-                f"  Deleted {deleted.rowcount} recent rows from {delete_from} for fresh reimport"
+                f"  Deleted {deleted.rowcount} recent rows from {reimport_from} for fresh reimport"
             )
 
-        start_date = delete_from
+        # Start from whichever is earlier:
+        # — day after latest saved date (to catch any gap)
+        # — or REIMPORT_DAYS ago (to refresh recent data)
+        day_after_latest = (
+            datetime.strptime(latest_date, "%Y-%m-%d") + timedelta(days=1)
+        ).strftime("%Y-%m-%d")
+        start_date = min(day_after_latest, reimport_from)
+
         print(
             f"  {fund_name:<45} | latest in DB: {latest_date} | fetching from {start_date}"
         )
@@ -205,13 +144,6 @@ def process_ticker(conn, ticker, name, asset_type=None):
 
     end_date = datetime.today().strftime("%Y-%m-%d")
 
-    # Check if already up to date
-    if latest_date and latest_date >= (datetime.today() - timedelta(days=1)).strftime(
-        "%Y-%m-%d"
-    ):
-        print(f"  Already up to date.")
-        return 0
-
     rows = fetch_yahoo(ticker, start_date, end_date)
 
     if not rows:
@@ -223,55 +155,6 @@ def process_ticker(conn, ticker, name, asset_type=None):
         f"  {len(rows)} rows fetched | {saved} new rows saved | {min(dates)} → {max(dates)}"
     )
     return saved
-
-
-# def clean_bad_rows(conn, threshold=4.0):
-#    """
-#    Find and delete rows where price jumped more than threshold*100%
-#    compared to the previous day. These are typically caused by
-#    currency redenominations or data errors in Yahoo Finance.
-#    Prints a summary of deleted rows.
-#    """
-#    print("\n── Checking for bad price data...")
-#
-#    bad_rows = conn.execute(
-#        """
-#        SELECT
-#            a.fund_id,
-#            a.fund_name,
-#            a.date,
-#            b.close as prev_close,
-#            a.close as curr_close,
-#            ROUND((a.close / b.close - 1) * 100, 1) as pct_change
-#        FROM fund_prices a
-#        JOIN fund_prices b
-#            ON a.fund_id = b.fund_id
-#            AND b.date = (
-#                SELECT MAX(date) FROM fund_prices
-#                WHERE fund_id = a.fund_id AND date < a.date
-#            )
-#        WHERE ABS(a.close / b.close - 1) > ?
-#        ORDER BY ABS(a.close / b.close - 1) DESC
-#    """,
-#        (threshold,),
-#    ).fetchall()
-#
-#    if not bad_rows:
-#        print("  No bad rows found.")
-#        return#
-#
-#    print(f"  Found {len(bad_rows)} suspicious rows — deleting:\n")
-#    deleted = 0
-#    for r in bad_rows:
-#        print(
-#            f"  DELETE {r[0]:<25} {r[2]}  "
-#            f"prev:{r[3]:.2f}  curr:{r[4]:.2f}  chg:{r[5]}%"
-#        )
-#        conn.execute("DELETE FROM fund_prices WHERE fund_id=? AND date=?", (r[0], r[2]))
-#        deleted += 1
-#
-#    conn.commit()
-#    print(f"\n  Deleted {deleted} bad rows.")
 
 
 # ── MAIN ───────────────────────────────────────────────────────
@@ -287,7 +170,7 @@ def main():
             print(
                 f"  Ticker {ticker_arg} not in TICKERS list, importing with ticker as name."
             )
-            tickers_to_run = [(sys.argv[1], sys.argv[1])]
+            tickers_to_run = [(sys.argv[1], sys.argv[1], None)]
     else:
         tickers_to_run = TICKERS
 
@@ -300,7 +183,8 @@ def main():
     total_saved = 0
 
     for item in tickers_to_run:
-        ticker, name = item[0], item[1]
+        ticker = item[0]
+        name = item[1]
         asset_type = item[2] if len(item) > 2 else None
         print(f"── {name} ({ticker})")
         try:
@@ -310,11 +194,10 @@ def main():
             print(f"  ERROR: {e}")
         print()
 
-    # clean_bad_rows(conn)
     conn.close()
-    print(f"\nDone. {total_saved} total new rows saved.")
+    print(f"Done. {total_saved} total new rows saved.")
     print(f"\nTo add a new ticker permanently, add a line to TICKERS:")
-    print(f'  ("TICKER", "Display Name"),')
+    print(f'  ("TICKER", "Display Name", "Asset Type"),')
 
 
 if __name__ == "__main__":
