@@ -119,3 +119,11 @@ def update_asset_type(conn, fund_id, asset_type):
         (asset_type, fund_id),
     )
     conn.commit()
+
+
+def fund_exists(conn, fund_id):
+    """Check if any rows exist for this fund_id."""
+    row = conn.execute(
+        "SELECT COUNT(*) FROM fund_prices WHERE fund_id = ?", (fund_id,)
+    ).fetchone()
+    return row[0] > 0

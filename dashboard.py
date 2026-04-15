@@ -32,6 +32,88 @@ def load_data():
     return df
 
 
+def build_composite_data(df):
+    """
+    Build synthetic price series for each composite fund defined in config.COMPOSITE_FUNDS.
+    Uses a rebased index approach:
+      - Find the common date range across all components
+      - Rebase each component to 100 on the first common date
+      - Weighted average of rebased prices = composite index
+    Returns a DataFrame in the same format as the real fund data.
+    """
+    composites = getattr(config, "COMPOSITE_FUNDS", [])
+    if not composites:
+        return pd.DataFrame()
+
+    rows = []
+
+    for comp in composites:
+        fund_id = comp["fund_id"]
+        fund_name = comp["display_name"]
+        asset_type = comp.get("asset_type", "Fund")
+        components = comp["components"]
+
+        # Get price series for each component
+        series = {}
+        for c in components:
+            cid = c["fund_id"]
+            cdf = df[df["fund_id"] == cid][["date", "close"]].sort_values("date")
+            if not cdf.empty:
+                series[cid] = cdf.set_index("date")["close"]
+
+        if len(series) == 0:
+            continue
+
+        # Find common dates across all components
+        common_dates = None
+        for s in series.values():
+            dates = set(s.index)
+            common_dates = dates if common_dates is None else common_dates & dates
+
+        if not common_dates or len(common_dates) < 2:
+            continue
+
+        common_dates = sorted(common_dates)
+        base_date = common_dates[0]
+
+        # Rebase each component to 100 on base_date and apply weight
+        composite_series = pd.Series(0.0, index=common_dates)
+        for c in components:
+            cid = c["fund_id"]
+            weight = c["weight"]
+            if cid not in series:
+                continue
+            s = series[cid].loc[common_dates]
+            base_val = s.loc[base_date]
+            if base_val == 0:
+                continue
+            rebased = (s / base_val) * 100
+            composite_series += rebased * weight
+
+        # Build rows in standard format
+        for date, price in composite_series.items():
+            rows.append(
+                {
+                    "fund_id": fund_id,
+                    "fund_name": fund_name,
+                    "asset_type": asset_type,
+                    "date": date,
+                    "open": price,
+                    "high": price,
+                    "low": price,
+                    "close": price,
+                    "volume": 0,
+                }
+            )
+
+    if not rows:
+        return pd.DataFrame()
+
+    result = pd.DataFrame(rows)
+    result["date"] = pd.to_datetime(result["date"])
+    return result
+
+
 def get_latest_price(df, fund_id):
     fund_df = df[df["fund_id"] == fund_id]
     if fund_df.empty:
@@ -53,6 +135,8 @@ def calc_return(df, fund_id, days_back=None, from_date=None):
     if past_df.empty:
         return None
     past_price = past_df.iloc[-1]["close"]
+    if past_price == 0:
+        return None
     return ((latest_price / past_price) - 1) * 100
 
 
@@ -123,7 +207,6 @@ def get_top4_funds(df, from_date):
 
 
 def render_returns_table(table_df, since_label, sort_state, header_type="market"):
-    """Render a returns table. header_type controls the sort-header id prefix."""
     return_cols = ["1D", "1W", "1M", "3M", "YTD", "Since"]
 
     col_ranges = {}
@@ -235,8 +318,8 @@ def render_returns_table(table_df, since_label, sort_state, header_type="market"
     )
 
 
-def build_relative_chart(selected_funds, since_date):
-    """Build a relative returns chart — shared by both Holdings and Market tabs."""
+def build_relative_chart(df_combined, selected_funds, since_date):
+    """Build a relative returns chart from a combined df (real + composite)."""
     fig = go.Figure()
     if not selected_funds:
         return fig
@@ -248,17 +331,19 @@ def build_relative_chart(selected_funds, since_date):
 
     fund_returns = []
     for fund_id in selected_funds:
-        r = calc_return(df, fund_id, from_date=since_date)
+        r = calc_return(df_combined, fund_id, from_date=since_date)
         fund_returns.append((fund_id, r or -999))
     fund_returns.sort(key=lambda x: x[1], reverse=True)
 
     for fund_id, _ in fund_returns:
-        fund_df = df[df["fund_id"] == fund_id].copy()
+        fund_df = df_combined[df_combined["fund_id"] == fund_id].copy()
         fund_df = fund_df[fund_df["date"] >= start].sort_values("date")
         if fund_df.empty or len(fund_df) < 2:
             continue
 
         base_price = fund_df.iloc[0]["close"]
+        if base_price == 0:
+            continue
         fund_df["return"] = ((fund_df["close"] / base_price) - 1) * 100
         fund_name = fund_df.iloc[0]["fund_name"]
 
@@ -327,20 +412,39 @@ def build_relative_chart(selected_funds, since_date):
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
 df = load_data()
+
+# Build composite data and merge with real data
+df_composite = build_composite_data(df)
+df_combined = (
+    pd.concat([df, df_composite], ignore_index=True) if not df_composite.empty else df
+)
+
+# Fund options for dropdowns — real funds only (composites added separately)
 funds = df[["fund_id", "fund_name"]].drop_duplicates()
 fund_options = [
     {"label": row["fund_name"], "value": row["fund_id"]} for _, row in funds.iterrows()
 ]
-all_fund_ids = [f["value"] for f in fund_options]
+
+# Add composite funds to options
+composite_options = [
+    {"label": c["display_name"], "value": c["fund_id"]}
+    for c in getattr(config, "COMPOSITE_FUNDS", [])
+]
+all_fund_options = fund_options + composite_options
 
 DEFAULT_DATE = "2025-12-31"
 max_date = df["date"].max().date()
 min_date = df["date"].min().date()
-top4_default = get_top4_funds(df, DEFAULT_DATE)
+top4_default = get_top4_funds(df_combined, DEFAULT_DATE)
 
-# Holdings fund options — from config
+# Holdings options — real + composite
 holding_ids_default = [h["fund_id"] for h in config.HOLDINGS]
-holdings_options = [o for o in fund_options if o["value"] in holding_ids_default]
+composite_ids = [c["fund_id"] for c in getattr(config, "COMPOSITE_FUNDS", [])]
+holdings_options = [
+    o
+    for o in all_fund_options
+    if o["value"] in holding_ids_default or o["value"] in composite_ids
+]
 
 # ── 3. STYLES ──────────────────────────────────────────────────
 
@@ -609,7 +713,7 @@ app.layout = html.Div(
                                 ),
                                 dcc.Dropdown(
                                     id="chart-fund-selector",
-                                    options=fund_options,
+                                    options=all_fund_options,
                                     value=top4_default,
                                     multi=True,
                                     placeholder="Select funds...",
@@ -787,9 +891,15 @@ app.layout = html.Div(
     Input("db-reload-trigger", "data"),
 )
 def switch_tab(tab, reload_trigger):
-    global df
+    global df, df_composite, df_combined
     if reload_trigger:
         df = load_data()
+        df_composite = build_composite_data(df)
+        df_combined = (
+            pd.concat([df, df_composite], ignore_index=True)
+            if not df_composite.empty
+            else df
+        )
 
     date_label = f"Data as of {df['date'].max().strftime('%d %b %Y')}"
     base = {"padding": "12px 16px 16px 16px", "maxWidth": "1200px", "margin": "0 auto"}
@@ -819,7 +929,6 @@ def update_holdings(since_date, n_clicks, sort_state):
     since_date = since_date or DEFAULT_DATE
     since_label = pd.Timestamp(since_date).strftime("%d %b %y")
 
-    # Handle sort header click
     triggered = ctx.triggered_id
     if (
         triggered
@@ -836,7 +945,15 @@ def update_holdings(since_date, n_clicks, sort_state):
     holding_ids = [h["fund_id"] for h in config.HOLDINGS]
     holding_names = {h["fund_id"]: h["display_name"] for h in config.HOLDINGS}
 
-    holdings_df = df[df["fund_id"].isin(holding_ids)].copy()
+    # Add composite funds
+    composites = getattr(config, "COMPOSITE_FUNDS", [])
+    composite_ids = [c["fund_id"] for c in composites]
+    comp_names = {c["fund_id"]: c["display_name"] for c in composites}
+
+    all_ids = holding_ids + composite_ids
+    all_names = {**holding_names, **comp_names}
+
+    holdings_df = df_combined[df_combined["fund_id"].isin(all_ids)].copy()
     if holdings_df.empty:
         return (
             html.P(
@@ -847,9 +964,8 @@ def update_holdings(since_date, n_clicks, sort_state):
         )
 
     table_df = build_returns_table(holdings_df, since_date)
-    table_df["Fund"] = table_df["fund_id"].map(lambda fid: holding_names.get(fid, fid))
+    table_df["Fund"] = table_df["fund_id"].map(lambda fid: all_names.get(fid, fid))
 
-    # Apply sort
     sort_col = sort_state["col"]
     sort_asc = sort_state["asc"]
     if sort_col in table_df.columns:
@@ -857,7 +973,6 @@ def update_holdings(since_date, n_clicks, sort_state):
             sort_col, ascending=sort_asc, na_position="last"
         )
 
-    # Group by asset type
     sections = []
     for asset_type, group in table_df.groupby("Type", sort=False):
         sections.append(
@@ -888,7 +1003,9 @@ def update_holdings(since_date, n_clicks, sort_state):
     Input("holdings-since-date", "date"),
 )
 def update_holdings_chart(selected_funds, since_date):
-    return build_relative_chart(selected_funds or [], since_date or DEFAULT_DATE)
+    return build_relative_chart(
+        df_combined, selected_funds or [], since_date or DEFAULT_DATE
+    )
 
 
 # ── 7. MARKET CALLBACKS ────────────────────────────────────────
@@ -917,7 +1034,7 @@ def update_market_table(since_date, n_clicks, sort_state):
             sort_state["col"] = clicked_col
             sort_state["asc"] = False
 
-    table_df = build_returns_table(df, since_date)
+    table_df = build_returns_table(df_combined, since_date)
     sort_col = sort_state["col"]
     sort_asc = sort_state["asc"]
     if sort_col in table_df.columns:
@@ -938,7 +1055,7 @@ def update_market_table(since_date, n_clicks, sort_state):
     State("chart-fund-selector", "value"),
 )
 def update_top4(since_date, current):
-    top4 = get_top4_funds(df, since_date)
+    top4 = get_top4_funds(df_combined, since_date)
     return current if current else top4
 
 
@@ -948,7 +1065,9 @@ def update_top4(since_date, current):
     Input("market-since-date", "date"),
 )
 def update_market_chart(selected_funds, since_date):
-    return build_relative_chart(selected_funds or [], since_date or DEFAULT_DATE)
+    return build_relative_chart(
+        df_combined, selected_funds or [], since_date or DEFAULT_DATE
+    )
 
 
 # ── 8. EDITOR CALLBACKS ────────────────────────────────────────

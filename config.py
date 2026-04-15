@@ -19,11 +19,11 @@ FUNDS = [
     {"name": "Robeco Emerging Stars Equities G GBP", "id": "LU1408526199:GBP"},
     {"name": "JPMorgan Emerging Markets ESG Equity C", "id": "GB00BL0DTP33:GBP"},
     {"name": "Schroder Life UK Smaller Companies", "id": "GB00B0ZGQD71:GBP"},
-    {"name": "Artemis UK Special Situations Fund I Acc", "id": "GB00B2PLJQ03:GBP"},
-    {"name": "L&G PMC North America Equity Index 3 Pen", "id": "GB00B3VGBC62:GBP"},
-    {"name": "L&G PMC Europe Ex UK Equity Index 3 Pen", "id": "GB00B4YKRJ18:GBP"},
-    {"name": "L&G PMC Japan Equity Index 3 Pen", "id": "GB00B4ZFV486:GBP"},
-    {"name": "L&G PMC Asia Pac ex Japan Dev Eq Idx 3 Pen", "id": "GB00B4WT1Y33:GBP"},
+    {"name": "Artemis UK Special Situations Fund", "id": "GB00B2PLJQ03:GBP"},
+    {"name": "L&G PMC North America Equity Index", "id": "GB00B3VGBC62:GBP"},
+    {"name": "L&G PMC Europe Ex UK Equity Index", "id": "GB00B4YKRJ18:GBP"},
+    {"name": "L&G PMC Japan Equity Index", "id": "GB00B4ZFV486:GBP"},
+    {"name": "L&G PMC Asia Pac ex Japan Dev Eq", "id": "GB00B4WT1Y33:GBP"},
     {"name": "L&G Future World ESG Optimised UK Index Fund", "id": "GB00BJH4XW03:GBP"},
 ]
 
@@ -75,10 +75,6 @@ HOLDINGS = [
         "fund_id": "GB00B3K5WJ87:GBP",
         "display_name": "SL Macquarie Global Infrastructure Secs",
     },
-    # HSBC Pension Funds
-    {"fund_id": "HEME:GBP", "display_name": "HSBC Emerging Markets Equities"},
-    {"fund_id": "HGEA:GBP", "display_name": "HSBC Global Equities Active"},
-    {"fund_id": "HSHL:GBP", "display_name": "HSBC Shariah Law Equities"},
     # ETFs
     {"fund_id": "YF:AINF.L", "display_name": "iShares AI Infrastructure ETF"},
     {"fund_id": "YF:DFEU.L", "display_name": "iShares Europe Def UETF"},
@@ -137,6 +133,7 @@ YAHOO_TICKERS = [
     ("CL=F", "Crude Oil Futures", "Commodity"),
     ("NG=F", "Natural Gas Futures", "Commodity"),
     ("CC=F", "Cocoa Futures", "Commodity"),
+    ("BZ=F", "Brent Crude Futures", "Commodity"),
     # Commodity ETCs (London listed, GBP)
     ("SGLN.L", "iShares Physical Gold ETC", "Commodity"),
     ("SSLN.L", "iShares Physical Silver ETC", "Commodity"),
@@ -172,11 +169,91 @@ YAHOO_TICKERS = [
     ("HFG.L", "Hilton Food Group", "Stock"),
     ("CCH.L", "Coca-Cola HBC", "Stock"),
     ("BA.L", "BAE Systems", "Stock"),
-    # L&G & Schroder Pension Fund Proxies
-    ("ISF.L", "L&G UK Equity ESG (proxy: FTSE 100 ETF)", "ETF"),
-    ("VERX.L", "L&G European Ex UK Equity (proxy: VERX ETF)", "ETF"),
-    ("CUKS.L", "Schroder Life UK Smaller Cos (proxy: CUKS ETF)", "ETF"),
-    ("^N225.L", "L&G Japan Equity Index (proxy: LGIJPN ETF)", "ETF"),
-    ("NUSA.L", "L&G North America Equity (proxy: NUSA ETF)", "ETF"),
-    ("AFMC.L", "Artemis UK Special Situations (proxy: AFMC ETF)", "ETF"),
+]
+
+
+# --- Composite Funds ---
+# Virtual funds calculated as weighted averages of real funds.
+# Calculated on the fly in the dashboard — nothing written to the database.
+# Weights should sum to 1.0.
+# fund_id must exactly match what's in the database.
+
+COMPOSITE_FUNDS = [
+    {
+        "fund_id": "COMPOSITE:HSBC_EM",
+        "display_name": "HSBC Pension Emerging Markets",
+        "asset_type": "Fund",
+        "components": [
+            {"fund_id": "LU1408526199:GBP", "weight": 0.50},  # Robeco Emerging Stars
+            {"fund_id": "GB00BL0DTP33:GBP", "weight": 0.50},  # JPM Emerging Markets ESG
+        ],
+    },
+    {
+        "fund_id": "COMPOSITE:HSBC_SHARIA",
+        "display_name": "HSBC Pension Sharia",
+        "asset_type": "Fund",
+        "components": [
+            {
+                "fund_id": "LU2092165666:GBP",
+                "weight": 1.00,
+            },  # HSBC Islamic Global Equity
+        ],
+    },
+    {
+        "fund_id": "COMPOSITE:HSBC_UK_ACTIVE",
+        "display_name": "HSBC Pension UK Active",
+        "asset_type": "Fund",
+        "components": [
+            {"fund_id": "GB00BJH4XW03:GBP", "weight": 0.670},  # L&G Future World ESG UK
+            {
+                "fund_id": "GB00B0ZGQD71:GBP",
+                "weight": 0.165,
+            },  # Schroder Life UK Smaller Cos
+            {
+                "fund_id": "GB00B2PLJQ03:GBP",
+                "weight": 0.165,
+            },  # Artemis UK Special Situations
+        ],
+    },
+    {
+        "fund_id": "COMPOSITE:HSBC_NORTH_AMERICA",
+        "display_name": "HSBC Pension North America",
+        "asset_type": "Fund",
+        "components": [
+            {
+                "fund_id": "GB00B3VGBC62:GBP",
+                "weight": 1.00,
+            },  # L&G PMC North America Equity
+        ],
+    },
+    {
+        "fund_id": "COMPOSITE:HSBC_EUROPE",
+        "display_name": "HSBC Pension Europe",
+        "asset_type": "Fund",
+        "components": [
+            {
+                "fund_id": "GB00B4YKRJ18:GBP",
+                "weight": 1.00,
+            },  # L&G PMC Europe Ex UK Equity
+        ],
+    },
+    {
+        "fund_id": "COMPOSITE:HSBC_JAPAN",
+        "display_name": "HSBC Pension Japan",
+        "asset_type": "Fund",
+        "components": [
+            {"fund_id": "GB00B4ZFV486:GBP", "weight": 1.00},  # L&G PMC Japan Equity
+        ],
+    },
+    {
+        "fund_id": "COMPOSITE:HSBC_ASIA_PAC",
+        "display_name": "HSBC Pension Asia Pacific",
+        "asset_type": "Fund",
+        "components": [
+            {
+                "fund_id": "GB00B4WT1Y33:GBP",
+                "weight": 1.00,
+            },  # L&G PMC Asia Pac ex Japan
+        ],
+    },
 ]

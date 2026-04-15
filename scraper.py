@@ -114,26 +114,17 @@ def scrape_fund(fund_id, fallback_name, latest_date=None):
     all_rows = []
 
     if latest_date is None:
-        print(f"  First run: paginating back {config.FIRST_RUN_DAYS} days")
+        print(f"  No historical data found.")
+        print(f"  For historical data, use import_manual.py.")
+        print(f"  Fetching latest data only...")
+
         end_date = today
-        cutoff = today - timedelta(days=config.FIRST_RUN_DAYS)
-
-        while end_date > cutoff:
-            start_date = end_date - timedelta(days=30)
-            url = build_url(fund_id, start_date, end_date)
-            print(f"  Fetching window: {start_date.date()} → {end_date.date()}")
-            html = fetch_page(url)
-            rows = parse_table(html)
-            print(f"    Got {len(rows)} rows")
-            rows = [r for r in rows if r["date"] >= cutoff.strftime("%Y-%m-%d")]
-            all_rows.extend(rows)
-            end_date = start_date
-            import time
-
-            time.sleep(1)
-
-        # Use HTML from last fetch to extract name
+        start_date = today - timedelta(days=30)
+        url = build_url(fund_id, start_date, end_date)
+        print(f"  Fetching: {start_date.date()} → {end_date.date()}")
+        html = fetch_page(url)
         fund_name = fetch_fund_name(html, fallback_name)
+        all_rows = parse_table(html)
 
     else:
         start_date = datetime.strptime(latest_date, "%Y-%m-%d") + timedelta(days=1)
