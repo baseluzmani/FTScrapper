@@ -31,6 +31,9 @@ FUNDS = [
 # How many days of history to pull on the very first run
 FIRST_RUN_DAYS = 365
 
+# --- Dashboard Settings ---
+DEFAULT_SINCE_DATE = '2026-03-01'  # Default date for returns calculations
+
 # --- Database ---
 # Path to the SQLite database file.
 # The 'data/' folder will be created automatically if it doesn't exist.
