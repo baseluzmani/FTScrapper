@@ -1361,4 +1361,4 @@ def save_or_cancel(save_clicks, cancel_clicks, new_close, selected, reload_trigg
 # ── 9. RUN ─────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0',debug=True)
