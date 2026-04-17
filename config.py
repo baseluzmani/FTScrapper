@@ -135,8 +135,6 @@ YAHOO_TICKERS = [
     ("CC=F", "Cocoa Futures", "Commodity"),
     ("BZ=F", "Brent Crude Futures", "Commodity"),
     # Commodity ETCs (London listed, GBP)
-    ("SGLN.L", "iShares Physical Gold ETC", "Commodity"),
-    ("SSLN.L", "iShares Physical Silver ETC", "Commodity"),
     ("PHPP.L", "WT Physical Precious Metals ETC", "Commodity"),
     ("COPB.L", "WisdomTree Copper ETC", "Commodity"),
     ("WEAP.L", "WisdomTree Wheat ETC", "Commodity"),
