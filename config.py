@@ -25,6 +25,7 @@ FUNDS = [
     {"name": "L&G PMC Japan Equity Index", "id": "GB00B4ZFV486:GBP"},
     {"name": "L&G PMC Asia Pac ex Japan Dev Eq", "id": "GB00B4WT1Y33:GBP"},
     {"name": "L&G Future World ESG Optimised UK Index Fund", "id": "GB00BJH4XW03:GBP"},
+    {"name": "Fidelity Funds - Latin America Fund W-Acc-GBP", "id": "LU1033664027:GBP"},
 ]
 
 # --- Date Settings ---
@@ -147,7 +148,6 @@ YAHOO_TICKERS = [
     ("COCO", "WisdomTree Cocoa", "Commodity"),
     # Currencies & FX
     ("GBPUSD=X", "GBP/USD", "Index"),
-    ("XAUUSD=X", "Gold / USD (Spot)", "Commodity"),
     ("CNY=X", "USD/CNY", "Index"),
     # Crypto
     ("BTC-GBP", "Bitcoin GBP", "Commodity"),
@@ -170,6 +170,9 @@ YAHOO_TICKERS = [
     ("HFG.L", "Hilton Food Group", "Stock"),
     ("CCH.L", "Coca-Cola HBC", "Stock"),
     ("BA.L", "BAE Systems", "Stock"),
+    ("AIGA.L",   "WisdomTree Agriculture ETC",  "Commodity"),
+    ("IGLN.L",   "iShares Physical Gold ETC",    "Commodity"),
+    ("ISLN.L",   "iShares Physical Silver ETC",  "Commodity"),
 ]
 
 

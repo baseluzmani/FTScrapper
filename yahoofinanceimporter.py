@@ -113,7 +113,7 @@ def process_ticker(conn, ticker, name, asset_type=None):
     if latest_date:
         # Delete the last REIMPORT_DAYS to allow fresh reimport
         deleted = conn.execute(
-            "DELETE FROM fund_prices WHERE fund_id=? AND date >= ?",
+            "DELETE FROM prices WHERE fund_id=? AND date >= ?",
             (fund_id, reimport_from),
         )
         conn.commit()

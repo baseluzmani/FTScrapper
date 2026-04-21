@@ -1,40 +1,42 @@
 # database.py
-# This file handles everything related to the database.
-# No other file talks to the database directly — only this one.
-# That means if we ever switch from SQLite to PostgreSQL,
-# we only change this file.
+# Handles all database operations.
+# Uses two tables:
+#   instruments — static info per fund (name, type, currency, unit, category)
+#   prices      — daily OHLCV price data, linked by fund_id
 
 import sqlite3
 import os
 
 
 def get_connection():
-    # Create the data/ folder if it doesn't exist yet
     os.makedirs("data", exist_ok=True)
-
-    # Connect to the database file (creates it if it doesn't exist)
     conn = sqlite3.connect("data/funds.db")
-
-    # This makes rows behave like dictionaries
-    # so we can access columns by name: row['date'] instead of row[0]
     conn.row_factory = sqlite3.Row
-
     return conn
 
 
 def create_table(conn):
+    """Create prices and instruments tables if they don't exist."""
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS fund_prices (
+        CREATE TABLE IF NOT EXISTS instruments (
+            fund_id     TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            asset_type  TEXT,
+            currency    TEXT,
+            price_unit  TEXT,
+            category    TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS prices (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             fund_id     TEXT NOT NULL,
-            fund_name   TEXT,
             date        TEXT NOT NULL,
             open        REAL,
             high        REAL,
             low         REAL,
             close       REAL,
             volume      INTEGER,
-            asset_type  TEXT,
             UNIQUE(fund_id, date)
         )
     """)
@@ -43,43 +45,51 @@ def create_table(conn):
 
 def get_latest_date(conn, fund_id):
     """Return the most recent date for a fund, or None if no data exists."""
-    cursor = conn.execute("""
-        SELECT MAX(date) as latest
-        FROM fund_prices
-        WHERE fund_id = ?
-    """, (fund_id,))
-    row = cursor.fetchone()
+    row = conn.execute(
+        "SELECT MAX(date) as latest FROM prices WHERE fund_id = ?",
+        (fund_id,)
+    ).fetchone()
     return row["latest"] if row["latest"] else None
 
 
 def fund_exists(conn, fund_id):
-    """Return True if any data exists for this fund_id."""
+    """Return True if any price data exists for this fund_id."""
     row = conn.execute(
-        "SELECT COUNT(*) FROM fund_prices WHERE fund_id = ?",
+        "SELECT COUNT(*) FROM prices WHERE fund_id = ?",
         (fund_id,)
     ).fetchone()
     return row[0] > 0
 
 
 def save_prices(conn, fund_id, fund_name, rows, asset_type=None):
-    """Insert new rows — skips duplicates silently."""
+    """Insert new price rows — skips duplicates silently.
+    Also upserts instrument record if not already present.
+    """
+    # Ensure instrument record exists
+    existing = conn.execute(
+        "SELECT fund_id FROM instruments WHERE fund_id = ?", (fund_id,)
+    ).fetchone()
+    if not existing:
+        conn.execute("""
+            INSERT OR IGNORE INTO instruments (fund_id, name, asset_type)
+            VALUES (?, ?, ?)
+        """, (fund_id, fund_name, asset_type))
+
     saved_count = 0
     for row in rows:
         result = conn.execute("""
-            INSERT OR IGNORE INTO fund_prices
-                (fund_id, fund_name, date, open, high, low, close, volume, asset_type)
+            INSERT OR IGNORE INTO prices
+                (fund_id, date, open, high, low, close, volume)
             VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (?, ?, ?, ?, ?, ?, ?)
         """, (
             fund_id,
-            fund_name,
             row["date"],
             row["open"],
             row["high"],
             row["low"],
             row["close"],
             row["volume"],
-            asset_type,
         ))
         saved_count += result.rowcount
     conn.commit()
@@ -87,18 +97,18 @@ def save_prices(conn, fund_id, fund_name, rows, asset_type=None):
 
 
 def update_fund_name(conn, fund_id, fund_name):
-    """Update the display name for all rows of a fund."""
+    """Update the display name in instruments table."""
     conn.execute(
-        "UPDATE fund_prices SET fund_name = ? WHERE fund_id = ?",
+        "UPDATE instruments SET name = ? WHERE fund_id = ?",
         (fund_name, fund_id),
     )
     conn.commit()
 
 
 def update_asset_type(conn, fund_id, asset_type):
-    """Update the asset type for all rows of a fund."""
+    """Update the asset type in instruments table."""
     conn.execute(
-        "UPDATE fund_prices SET asset_type = ? WHERE fund_id = ?",
+        "UPDATE instruments SET asset_type = ? WHERE fund_id = ?",
         (asset_type, fund_id),
     )
     conn.commit()

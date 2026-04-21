@@ -8,24 +8,123 @@ from dash import html, dcc, Input, Output, State, ALL, ctx
 import plotly.graph_objects as go
 import pandas as pd
 import sqlite3
+import json
+import os
 from datetime import datetime, timedelta
 import numpy as np
 import config
 
 # ── 1. DATA LAYER ──────────────────────────────────────────────
 
-DB_PATH = "data/funds.db"
+DB_PATH        = "data/funds.db"
+PORTFOLIO_PATH = "data/portfolio.json"
+GBPUSD         = None  # cached FX rate
+
 
 def load_data():
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query("""
-        SELECT fund_id, fund_name, asset_type, date, open, high, low, close, volume
-        FROM fund_prices
-        ORDER BY fund_id, date
+        SELECT p.fund_id, i.name as fund_name, i.asset_type, p.date,
+               p.open, p.high, p.low, p.close, p.volume
+        FROM prices p
+        LEFT JOIN instruments i ON p.fund_id = i.fund_id
+        ORDER BY p.fund_id, p.date
     """, conn)
     conn.close()
     df['date'] = pd.to_datetime(df['date'])
     return df
+
+
+def load_instruments():
+    """Load instruments table into a dict keyed by fund_id."""
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        "SELECT fund_id, name, asset_type, currency, price_unit, category FROM instruments"
+    ).fetchall()
+    conn.close()
+    return {r[0]: {'name': r[1], 'asset_type': r[2], 'currency': r[3], 'price_unit': r[4], 'category': r[5] or '—'}
+            for r in rows}
+
+
+def load_portfolio():
+    """Load portfolio from JSON. Returns list of {fund_id, units}."""
+    if not os.path.exists(PORTFOLIO_PATH):
+        return []
+    try:
+        with open(PORTFOLIO_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def save_portfolio(portfolio):
+    """Save portfolio list to JSON."""
+    os.makedirs('data', exist_ok=True)
+    with open(PORTFOLIO_PATH, 'w') as f:
+        json.dump(portfolio, f, indent=2)
+
+
+def get_gbpusd(df):
+    """Get latest GBP/USD rate from database."""
+    fx_df = df[df['fund_id'] == 'YF:GBPUSD=X'].sort_values('date')
+    if fx_df.empty:
+        return 1.26  # fallback
+    return fx_df.iloc[-1]['close']
+
+
+def to_gbp(price, price_unit, currency, gbpusd):
+    """Convert a price to GBP pounds."""
+    if price is None:
+        return None
+    # Convert pence to pounds
+    if price_unit == 'pence':
+        price = price / 100
+    # Convert USD to GBP
+    if currency == 'USD':
+        price = price / gbpusd
+    # Points/ratios are not convertible to GBP value
+    if price_unit in ('point', 'ratio'):
+        return None
+    return price
+
+
+def build_calculated_series(df):
+    """Build calculated price series not available directly from Yahoo.
+    CALC:XAUGBP = GC=F (Gold Futures USD) / GBPUSD=X
+    """
+    rows = []
+
+    # Use Gold Futures (GC=F) as proxy for gold spot price in USD
+    xauusd = df[df['fund_id'] == 'YF:GC=F'].set_index('date')['close']
+    gbpusd = df[df['fund_id'] == 'YF:GBPUSD=X'].set_index('date')['close']
+
+    if xauusd.empty or gbpusd.empty:
+        return pd.DataFrame()
+
+    common_dates = sorted(set(xauusd.index) & set(gbpusd.index))
+    for date in common_dates:
+        gbpusd_val = gbpusd.loc[date]
+        if gbpusd_val == 0:
+            continue
+        price = xauusd.loc[date] / gbpusd_val
+        rows.append({
+            'fund_id':    'CALC:XAUGBP',
+            'fund_name':  'Gold / GBP (Spot)',
+            'asset_type': 'Commodity',
+            'date':       date,
+            'open':       price,
+            'high':       price,
+            'low':        price,
+            'close':      price,
+            'volume':     0,
+        })
+
+    if not rows:
+        return pd.DataFrame()
+
+    result = pd.DataFrame(rows)
+    result['date'] = pd.to_datetime(result['date'])
+    return result
 
 
 def build_composite_data(df):
@@ -59,8 +158,8 @@ def build_composite_data(df):
         if not common_dates or len(common_dates) < 2:
             continue
 
-        common_dates  = sorted(common_dates)
-        base_date     = common_dates[0]
+        common_dates     = sorted(common_dates)
+        base_date        = common_dates[0]
         composite_series = pd.Series(0.0, index=common_dates)
 
         for c in components:
@@ -171,7 +270,6 @@ def heatmap_color(val, vmin, vmax):
 
 
 def get_top4_by_ytd(df, fund_ids):
-    """Return top 4 fund_ids from the given list ranked by YTD return."""
     returns = []
     for fid in fund_ids:
         r = calc_return(df, fid, from_date=ytd_date())
@@ -194,8 +292,7 @@ def get_top4_funds(df, from_date):
 
 def render_returns_table(table_df, since_label, sort_state, header_type='market',
                          selected_funds=None, clickable=False):
-    """Render a returns table. If clickable=True, rows are highlighted when selected."""
-    return_cols = ['1D', '1W', '1M', '3M', 'YTD', 'Since']
+    return_cols    = ['1D', '1W', '1M', '3M', 'YTD', 'Since']
     selected_funds = selected_funds or []
 
     col_ranges = {}
@@ -204,15 +301,15 @@ def render_returns_table(table_df, since_label, sort_state, header_type='market'
         col_ranges[col] = (vals.min(), vals.max()) if len(vals) > 0 else (0, 0)
 
     col_defs = [
-        ('Fund',                 'Fund',  False),
-        ('Type',                 'Type',  False),
-        ('Price',                'Price', False),
-        ('1D %',                 '1D',    True),
-        ('1W %',                 '1W',    True),
-        ('1M %',                 '1M',    True),
-        ('3M %',                 '3M',    True),
-        ('YTD %',                'YTD',   True),
-        (since_label,           'Since', True),
+        ('Fund',       'Fund',  False),
+        ('Type',       'Type',  False),
+        ('Price',      'Price', False),
+        ('1D %',       '1D',    True),
+        ('1W %',       '1W',    True),
+        ('1M %',       '1M',    True),
+        ('3M %',       '3M',    True),
+        ('YTD %',      'YTD',   True),
+        (since_label,  'Since', True),
     ]
 
     def sort_arrow(col_key):
@@ -226,30 +323,29 @@ def render_returns_table(table_df, since_label, sort_state, header_type='market'
             id={'type': f'sort-header-{header_type}', 'col': key},
             n_clicks=0,
             style={
-                'backgroundColor': '#1a3a5c',
-                'color': 'white',
-                'padding': '5px 8px',
-                'fontSize': '10px',
-                'fontWeight': '600',
+                'backgroundColor': '#1a3a5c', 'color': 'white',
+                'padding': '5px 8px', 'fontSize': '10px', 'fontWeight': '600',
                 'textAlign': 'center' if label != 'Fund' else 'left',
-                'letterSpacing': '0.03em',
-                'whiteSpace': 'nowrap',
-                'cursor': 'pointer',
-                'userSelect': 'none',
+                'letterSpacing': '0.03em', 'whiteSpace': 'nowrap',
+                'cursor': 'pointer', 'userSelect': 'none',
             }
         ) for label, key, _ in col_defs
     ])
 
     rows = []
     for _, row in table_df.iterrows():
-        fid        = row['fund_id']
+        fid         = row['fund_id']
         is_selected = fid in selected_funds
-        row_bg     = '#e8f0f8' if is_selected else 'transparent'
-        row_style  = {
+        row_bg      = '#e8f0f8' if is_selected else 'transparent'
+        row_style   = {
             'borderBottom': '1px solid #f0f3f7',
             'backgroundColor': row_bg,
             'cursor': 'pointer' if clickable else 'default',
         }
+
+        max_len   = 30
+        fund_name = str(row['Fund']) if row['Fund'] and str(row['Fund']) != 'nan' else row['fund_id']
+        fund_disp = fund_name if len(fund_name) <= max_len else fund_name[:max_len] + '…'
 
         cells = [
             html.Td(
@@ -259,12 +355,13 @@ def render_returns_table(table_df, since_label, sort_state, header_type='market'
                         'marginRight': '4px',
                         'opacity': '1' if is_selected else '0',
                     }),
-                    row['Fund'],
+                    html.Span(fund_disp, title=fund_name),
                 ]),
                 style={
                     'padding': '4px 6px', 'fontSize': '11px',
                     'fontWeight': '600' if is_selected else '500',
                     'color': '#1a3a5c', 'whiteSpace': 'nowrap',
+                    'maxWidth': '200px', 'overflow': 'hidden',
                 }
             ),
             html.Td(row['Type'], style={
@@ -311,7 +408,6 @@ def render_returns_table(table_df, since_label, sort_state, header_type='market'
 
 
 def build_relative_chart(df_combined, selected_funds, since_date):
-    """Build a relative returns chart."""
     fig = go.Figure()
     if not selected_funds:
         fig.update_layout(
@@ -341,17 +437,12 @@ def build_relative_chart(df_combined, selected_funds, since_date):
         if all_fund_df.empty:
             continue
 
-        # Base price = last available price on or before since_date (same as table)
         base_df = all_fund_df[all_fund_df['date'] <= start]
-        if base_df.empty:
-            base_price = all_fund_df.iloc[0]['close']
-        else:
-            base_price = base_df.iloc[-1]['close']
+        base_price = base_df.iloc[-1]['close'] if not base_df.empty else all_fund_df.iloc[0]['close']
 
         if base_price == 0:
             continue
 
-        # Chart shows all data from since_date onwards
         fund_df = all_fund_df[all_fund_df['date'] >= start].copy()
         if fund_df.empty or len(fund_df) < 2:
             continue
@@ -404,7 +495,12 @@ app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
 df           = load_data()
 df_composite = build_composite_data(df)
-df_combined  = pd.concat([df, df_composite], ignore_index=True) if not df_composite.empty else df
+df_calc      = build_calculated_series(df)
+df_combined  = pd.concat(
+    [x for x in [df, df_composite, df_calc] if not x.empty],
+    ignore_index=True
+)
+instruments  = load_instruments()
 
 funds = df[['fund_id', 'fund_name']].drop_duplicates()
 fund_options = [
@@ -423,12 +519,19 @@ max_date     = df['date'].max().date()
 min_date     = df['date'].min().date()
 top4_default = get_top4_funds(df_combined, DEFAULT_DATE)
 
-holding_ids_default = [h['fund_id'] for h in config.HOLDINGS]
-composite_ids       = [c['fund_id'] for c in getattr(config, 'COMPOSITE_FUNDS', [])]
-all_holding_ids     = holding_ids_default + composite_ids
-
-# Default: top 4 holdings by YTD
+holding_ids_default   = [h['fund_id'] for h in config.HOLDINGS]
+composite_ids         = [c['fund_id'] for c in getattr(config, 'COMPOSITE_FUNDS', [])]
+all_holding_ids       = holding_ids_default + composite_ids
 top4_holdings_default = get_top4_by_ytd(df_combined, all_holding_ids)
+
+# Portfolio fund options — all funds in instruments table
+# Include fixed-price instruments (CASH/ASSET), exclude points/ratios
+portfolio_options = [
+    {'label': f"{v['name']} ({k})", 'value': k}
+    for k, v in sorted(instruments.items(), key=lambda x: x[1]['name'])
+    if v['price_unit'] not in ('point', 'ratio')
+    or k.startswith('CASH:') or k.startswith('ASSET:')
+]
 
 # ── 3. STYLES ──────────────────────────────────────────────────
 
@@ -501,7 +604,7 @@ app.layout = html.Div([
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
             dcc.Tab(label='Market Overview', value='tab-market',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
-            dcc.Tab(label='Data Editor',     value='tab-editor',
+            dcc.Tab(label='Portfolio',       value='tab-portfolio',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
         ],
         style={'backgroundColor': '#fff', 'borderBottom': '1px solid #eee', 'marginBottom': '0'}
@@ -509,7 +612,6 @@ app.layout = html.Div([
 
     # ── HOLDINGS TAB
     html.Div([
-        # Controls card
         html.Div([
             html.Div([
                 html.P("MY HOLDINGS", style={**SECTION_TITLE, 'marginBottom': '0'}),
@@ -532,54 +634,34 @@ app.layout = html.Div([
             ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
         ], style=CARD),
 
-        # Side-by-side: table (left 2/3) + chart (right 1/3)
         html.Div([
-            # Left — table (twice the width of chart)
             html.Div([
                 html.Div(id='holdings-table-div'),
-            ], style={
-                'flex': '2',
-                'minWidth': '0',
-                'overflow': 'hidden',
-            }),
+            ], style={'flex': '2', 'minWidth': '0', 'overflow': 'hidden'}),
 
-            # Right — chart (half the width of table)
             html.Div([
                 html.Div([
                     html.P("RELATIVE RETURNS", style={**SECTION_TITLE, 'marginBottom': '4px'}),
-                    html.Span(id='holdings-chart-info', style={
-                        'fontSize': '11px', 'color': '#aaa',
-                    }),
+                    html.Span(id='holdings-chart-info', style={'fontSize': '11px', 'color': '#aaa'}),
                 ], style={'marginBottom': '8px'}),
-                dcc.Graph(
-                    id='holdings-relative-chart',
-                    config={'displayModeBar': False},
-                ),
+                dcc.Graph(id='holdings-relative-chart', config={'displayModeBar': False}),
             ], style={
-                'flex': '1',
-                'minWidth': '260px',
-                'backgroundColor': '#fff',
-                'borderRadius': '8px',
-                'padding': '14px 18px',
+                'flex': '1', 'minWidth': '260px', 'backgroundColor': '#fff',
+                'borderRadius': '8px', 'padding': '14px 18px',
                 'boxShadow': '0 1px 4px rgba(0,0,0,0.08)',
-                'marginBottom': '12px',
-                'marginLeft': '12px',
+                'marginBottom': '12px', 'marginLeft': '12px',
             }),
         ], style={'display': 'flex', 'alignItems': 'flex-start'}),
 
-        # Store for selected holdings
         dcc.Store(id='holdings-selected-funds', data=top4_holdings_default),
 
     ], id='holdings-tab-content', style={
-        'display': 'block',
-        'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px',
-        'margin': '0 auto',
+        'display': 'block', 'padding': '12px 16px 16px 16px',
+        'maxWidth': '1400px', 'margin': '0 auto',
     }),
 
     # ── MARKET TAB
     html.Div([
-        # Header card with date picker
         html.Div([
             html.Div([
                 html.P("MARKET OVERVIEW", style={**SECTION_TITLE, 'marginBottom': '0'}),
@@ -602,52 +684,59 @@ app.layout = html.Div([
             ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
         ], style=CARD),
 
-        # Side-by-side: table (left 2/3) + chart (right 1/3)
         html.Div([
-            # Left — table
             html.Div([
                 html.Div(id='market-table-div'),
-            ], style={
-                'flex': '2',
-                'minWidth': '0',
-                'overflow': 'hidden',
-            }),
+            ], style={'flex': '2', 'minWidth': '0', 'overflow': 'hidden'}),
 
-            # Right — chart
             html.Div([
                 html.Div([
                     html.P("RELATIVE RETURNS", style={**SECTION_TITLE, 'marginBottom': '4px'}),
-                    html.Span(id='market-chart-info', style={
-                        'fontSize': '11px', 'color': '#aaa',
-                    }),
+                    html.Span(id='market-chart-info', style={'fontSize': '11px', 'color': '#aaa'}),
                 ], style={'marginBottom': '8px'}),
                 dcc.Graph(id='relative-chart', config={'displayModeBar': False}),
             ], style={
-                'flex': '1',
-                'minWidth': '260px',
-                'backgroundColor': '#fff',
-                'borderRadius': '8px',
-                'padding': '14px 18px',
+                'flex': '1', 'minWidth': '260px', 'backgroundColor': '#fff',
+                'borderRadius': '8px', 'padding': '14px 18px',
                 'boxShadow': '0 1px 4px rgba(0,0,0,0.08)',
-                'marginBottom': '12px',
+                'marginBottom': '12px', 'marginLeft': '12px',
+            }),
+        ], style={'display': 'flex', 'alignItems': 'flex-start'}),
+
+        dcc.Store(id='market-selected-funds', data=top4_default),
+
+    ], id='market-tab-content', style={
+        'display': 'none', 'padding': '12px 16px 16px 16px',
+        'maxWidth': '1400px', 'margin': '0 auto',
+    }),
+
+    # ── PORTFOLIO TAB
+    html.Div([
+        # Header
+        html.Div([
+            html.Div([
+                html.P("PORTFOLIO", style={**SECTION_TITLE, 'marginBottom': '0'}),
+                html.Span(id='portfolio-total-label', style={
+                    'fontSize': '20px', 'fontWeight': '700',
+                    'color': '#1a3a5c', 'letterSpacing': '0.02em',
+                }),
+            ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
+        ], style=CARD),
+
+        # Side-by-side: main table (left) + category breakdown (right)
+        html.Div([
+            html.Div(id='portfolio-table-div', style={
+                'flex': '3', 'minWidth': '0',
+            }),
+            html.Div(id='portfolio-category-div', style={
+                'flex': '1', 'minWidth': '220px',
                 'marginLeft': '12px',
             }),
         ], style={'display': 'flex', 'alignItems': 'flex-start'}),
 
-        # Store for selected market funds
-        dcc.Store(id='market-selected-funds', data=top4_default),
-
-    ], id='market-tab-content', style={
-        'display': 'none',
-        'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px',
-        'margin': '0 auto',
-    }),
-
-    # ── EDITOR TAB
-    html.Div([
+        # Add / Edit section
         html.Div([
-            html.P("DATA EDITOR", style=SECTION_TITLE),
+            html.P("ADD / UPDATE HOLDING", style=SECTION_TITLE),
             html.Div([
                 html.Div([
                     html.Label("Fund:", style={
@@ -655,70 +744,60 @@ app.layout = html.Div([
                         'marginBottom': '4px', 'display': 'block',
                     }),
                     dcc.Dropdown(
-                        id='editor-fund-filter',
-                        options=fund_options,
-                        placeholder='Select a fund...',
+                        id='portfolio-fund-select',
+                        options=portfolio_options,
+                        placeholder='Select fund...',
                         style={'fontSize': '12px'},
                     ),
-                ], style={'flex': '2', 'marginRight': '12px'}),
+                ], style={'flex': '3', 'marginRight': '12px'}),
                 html.Div([
-                    html.Label("From:", style={
+                    html.Label("Units:", style={
                         'fontSize': '11px', 'color': '#666',
                         'marginBottom': '4px', 'display': 'block',
                     }),
-                    dcc.DatePickerSingle(
-                        id='editor-date-from',
-                        date=(datetime.today() - timedelta(days=30)).date(),
-                        min_date_allowed=min_date,
-                        max_date_allowed=max_date,
-                        display_format='DD MMM YYYY',
+                    dcc.Input(
+                        id='portfolio-units-input',
+                        type='number',
+                        placeholder='e.g. 1250.5',
+                        step=0.0001,
+                        style={
+                            'padding': '7px', 'fontSize': '12px',
+                            'border': '1px solid #ccc', 'borderRadius': '4px',
+                            'width': '140px',
+                        },
                     ),
                 ], style={'marginRight': '12px'}),
                 html.Div([
-                    html.Label("To:", style={
-                        'fontSize': '11px', 'color': '#666',
-                        'marginBottom': '4px', 'display': 'block',
+                    html.Label(" ", style={'fontSize': '11px', 'display': 'block', 'marginBottom': '4px'}),
+                    html.Button("Save", id='portfolio-save-btn', n_clicks=0, style={
+                        'backgroundColor': '#1a7a1a', 'color': 'white',
+                        'border': 'none', 'borderRadius': '4px',
+                        'padding': '7px 16px', 'fontSize': '12px',
+                        'cursor': 'pointer', 'marginRight': '8px',
                     }),
-                    dcc.DatePickerSingle(
-                        id='editor-date-to',
-                        date=datetime.today().date(),
-                        min_date_allowed=min_date,
-                        max_date_allowed=max_date,
-                        display_format='DD MMM YYYY',
-                    ),
-                ], style={'marginRight': '12px'}),
-                html.Div([
-                    html.Label(" ", style={
-                        'fontSize': '11px', 'display': 'block', 'marginBottom': '4px',
-                    }),
-                    html.Button("Search", id='editor-search-btn', n_clicks=0, style={
-                        'backgroundColor': '#1a3a5c', 'color': 'white',
+                    html.Button("Remove", id='portfolio-remove-btn', n_clicks=0, style={
+                        'backgroundColor': '#c0392b', 'color': 'white',
                         'border': 'none', 'borderRadius': '4px',
                         'padding': '7px 16px', 'fontSize': '12px', 'cursor': 'pointer',
                     }),
                 ]),
             ], style={'display': 'flex', 'alignItems': 'flex-end'}),
+            html.Div(id='portfolio-status', style={
+                'fontSize': '12px', 'color': '#2E75B6',
+                'marginTop': '8px', 'fontWeight': '600',
+            }),
         ], style=CARD),
 
-        html.Div(id='editor-results-div'),
-        html.Div(id='editor-form-div'),
-        html.Div(id='editor-status', style={
-            'fontSize': '12px', 'color': '#2E75B6',
-            'padding': '8px 0', 'fontWeight': '600',
-        }),
-        dcc.Store(id='editor-selected', data={}),
-
-    ], id='editor-tab-content', style={
-        'display': 'none',
-        'padding': '12px 16px 16px 16px',
-        'maxWidth': '1200px',
-        'margin': '0 auto',
+    ], id='portfolio-tab-content', style={
+        'display': 'none', 'padding': '12px 16px 16px 16px',
+        'maxWidth': '1400px', 'margin': '0 auto',
     }),
 
     # Shared stores
     dcc.Store(id='sort-state-holdings', data={'col': 'YTD', 'asc': False}),
     dcc.Store(id='sort-state-market',   data={'col': 'YTD', 'asc': False}),
     dcc.Store(id='db-reload-trigger',   data=0),
+    dcc.Store(id='portfolio-reload',    data=0),
 
 ], style={
     'fontFamily': '"DM Sans", -apple-system, BlinkMacSystemFont, sans-serif',
@@ -730,32 +809,40 @@ app.layout = html.Div([
 # ── 5. TAB VISIBILITY ──────────────────────────────────────────
 
 @app.callback(
-    Output('holdings-tab-content', 'style'),
-    Output('market-tab-content',   'style'),
-    Output('editor-tab-content',   'style'),
-    Output('data-date-label',      'children'),
+    Output('holdings-tab-content',  'style'),
+    Output('market-tab-content',    'style'),
+    Output('portfolio-tab-content', 'style'),
+    Output('data-date-label',       'children'),
     Input('main-tabs',         'value'),
     Input('db-reload-trigger', 'data'),
 )
 def switch_tab(tab, reload_trigger):
-    global df, df_composite, df_combined
+    global df, df_composite, df_combined, instruments
     if reload_trigger:
         df           = load_data()
         df_composite = build_composite_data(df)
-        df_combined  = pd.concat([df, df_composite], ignore_index=True) if not df_composite.empty else df
+        df_calc      = build_calculated_series(df)
+        df_combined  = pd.concat(
+            [x for x in [df, df_composite, df_calc] if not x.empty],
+            ignore_index=True
+        )
+        instruments  = load_instruments()
 
     date_label = f"Data as of {df['date'].max().strftime('%d %b %Y')}"
     base = {'padding': '12px 16px 16px 16px', 'maxWidth': '1400px', 'margin': '0 auto'}
-    show = {**base, 'display': 'block'}
-    hide = {**base, 'display': 'none'}
+    base_port = {'padding': '12px 16px 16px 16px', 'maxWidth': '1400px', 'margin': '0 auto'}
+    show      = {**base,      'display': 'block'}
+    show_port = {**base_port, 'display': 'block'}
+    hide      = {**base,      'display': 'none'}
+    hide_port = {**base_port, 'display': 'none'}
 
     if tab == 'tab-holdings':
-        return show, hide, hide, date_label
+        return show, hide, hide_port, date_label
     elif tab == 'tab-market':
-        return hide, show, hide, date_label
-    elif tab == 'tab-editor':
-        return hide, hide, show, date_label
-    return show, hide, hide, date_label
+        return hide, show, hide_port, date_label
+    elif tab == 'tab-portfolio':
+        return hide, hide, show_port, date_label
+    return show, hide, hide_port, date_label
 
 
 # ── 6. HOLDINGS CALLBACKS ──────────────────────────────────────
@@ -769,19 +856,15 @@ def switch_tab(tab, reload_trigger):
 def toggle_holding(n_clicks, selected):
     if not any(n_clicks):
         return selected
-
     triggered = ctx.triggered_id
     if not triggered:
         return selected
-
-    fid = triggered['fund_id']
+    fid      = triggered['fund_id']
     selected = list(selected or [])
-
     if fid in selected:
         selected.remove(fid)
     else:
         selected.append(fid)
-
     return selected
 
 
@@ -830,15 +913,11 @@ def update_holdings(since_date, n_clicks, selected_funds, sort_state):
     for asset_type, group in table_df.groupby('Type', sort=False):
         sections.append(html.Div([
             html.P(asset_type.upper(), style={
-                **SECTION_TITLE,
-                'borderBottom': '1px solid #e0e0e0',
-                'paddingBottom': '4px',
+                **SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px',
             }),
             render_returns_table(
                 group, since_label, sort_state,
-                header_type='holdings',
-                selected_funds=selected_funds,
-                clickable=True,
+                header_type='holdings', selected_funds=selected_funds, clickable=True,
             ),
         ], style=CARD))
 
@@ -870,19 +949,15 @@ def update_holdings_chart(selected_funds, since_date):
 def toggle_market(n_clicks, selected):
     if not any(n_clicks):
         return selected
-
     triggered = ctx.triggered_id
     if not triggered:
         return selected
-
-    fid = triggered['fund_id']
+    fid      = triggered['fund_id']
     selected = list(selected or [])
-
     if fid in selected:
         selected.remove(fid)
     else:
         selected.append(fid)
-
     return selected
 
 
@@ -915,9 +990,7 @@ def update_market_table(since_date, n_clicks, selected_funds, sort_state):
     since_label = pd.Timestamp(since_date).strftime('%d %b %y')
     return render_returns_table(
         table_df, since_label, sort_state,
-        header_type='market',
-        selected_funds=selected_funds,
-        clickable=True,
+        header_type='market', selected_funds=selected_funds, clickable=True,
     ), sort_state
 
 
@@ -935,179 +1008,261 @@ def update_market_chart(selected_funds, since_date):
     return build_relative_chart(df_combined, selected_funds, since_date), info
 
 
-# ── 8. EDITOR CALLBACKS ────────────────────────────────────────
+# ── 8. PORTFOLIO CALLBACKS ─────────────────────────────────────
 
 @app.callback(
-    Output('editor-results-div', 'children'),
-    Input('editor-search-btn',   'n_clicks'),
-    State('editor-fund-filter',  'value'),
-    State('editor-date-from',    'date'),
-    State('editor-date-to',      'date'),
-    prevent_initial_call=True,
+    Output('portfolio-table-div',    'children'),
+    Output('portfolio-total-label',  'children'),
+    Output('portfolio-category-div', 'children'),
+    Input('portfolio-reload',        'data'),
+    Input('main-tabs',               'value'),
 )
-def search_records(n_clicks, fund_id, date_from, date_to):
-    if not fund_id:
-        return html.P("Please select a fund first.",
-                      style={'color': '#999', 'fontSize': '12px'})
+def update_portfolio(reload, tab):
+    portfolio  = load_portfolio()
+    gbpusd     = get_gbpusd(df)
 
-    conn = sqlite3.connect(DB_PATH)
-    records = pd.read_sql_query("""
-        SELECT date, open, high, low, close, volume
-        FROM fund_prices
-        WHERE fund_id = ? AND date >= ? AND date <= ?
-        ORDER BY date DESC
-    """, conn, params=(fund_id, date_from, date_to))
-    conn.close()
-
-    if records.empty:
-        return html.P("No records found.", style={'color': '#999', 'fontSize': '12px'})
+    if not portfolio:
+        return html.P(
+            "No holdings yet. Add a fund below.",
+            style={'color': '#999', 'fontSize': '12px', 'padding': '12px'}
+        ), "£0.00", html.Div()
 
     header = html.Tr([
         html.Th(c, style={
             'backgroundColor': '#1a3a5c', 'color': 'white',
             'padding': '6px 12px', 'fontSize': '11px', 'fontWeight': '600',
-            'textAlign': 'center', 'whiteSpace': 'nowrap',
-        }) for c in ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Action']
+            'textAlign': 'left' if i == 0 else 'center', 'whiteSpace': 'nowrap',
+        }) for i, c in enumerate(['Fund', 'Category', 'Type', 'Currency', 'Units', 'Price', 'Value (£)', '% of Portfolio'])
     ])
 
+    rows_data = []
+    for item in portfolio:
+        fid   = item['fund_id']
+        units = item.get('units', 0)
+        inst  = instruments.get(fid, {})
+        name  = inst.get('name', fid)
+        atype = inst.get('asset_type', '—')
+        cat   = inst.get('category', '—')
+        curr  = inst.get('currency', '?')
+        punit = inst.get('price_unit', '?')
+        # Fixed-price instruments (cash, house) use 1.0 as price
+        # Units = the actual value in the instrument's currency
+        if fid.startswith('CASH:') or fid.startswith('ASSET:'):
+            price = 1.0
+        else:
+            price = get_latest_price(df_combined, fid)
+        gbp   = to_gbp(price, punit, curr, gbpusd) if price else None
+        value = gbp * units if gbp is not None else None
+        rows_data.append({
+            'fund_id': fid, 'name': name, 'type': atype, 'category': cat,
+            'currency': curr, 'units': units,
+            'price': price, 'gbp_price': gbp, 'value': value,
+        })
+
+    total = sum(r['value'] for r in rows_data if r['value'] is not None)
+
     rows = []
-    for _, row in records.iterrows():
+    for r in sorted(rows_data, key=lambda x: x['value'] or 0, reverse=True):
+        pct   = (r['value'] / total * 100) if total and r['value'] else None
+        name  = r['name']
+        ndisp = name if len(name) <= 35 else name[:35] + '…'
+
+        # Units: no trailing zeros, no decimals if whole number
+        units = r['units']
+        if r['fund_id'].startswith(('CASH:', 'ASSET:')):
+            units_str = f"{units:,.0f}"
+        elif units == int(units):
+            units_str = f"{int(units):,}"
+        else:
+            # Strip trailing zeros from 4dp
+            units_str = f"{units:,.4f}".rstrip('0').rstrip('.')
+
+        # Price: convert pence to pounds for GBP pence instruments, show 1dp
+        price = r['price']
+        fid   = r['fund_id']
+        punit = instruments.get(fid, {}).get('price_unit', '')
+        curr  = instruments.get(fid, {}).get('currency', '')
+        if r['fund_id'].startswith(('CASH:', 'ASSET:')):
+            price_str = 'Fixed'
+        elif price is None:
+            price_str = 'N/A'
+        elif punit == 'pence' and curr == 'GBP':
+            price_str = f"{price / 100:.1f}"
+        else:
+            price_str = f"{price:.1f}"
+
         rows.append(html.Tr([
-            html.Td(row['date'], style={
+            html.Td(html.Span(ndisp, title=name), style={
                 'padding': '5px 12px', 'fontSize': '12px',
-                'textAlign': 'center', 'whiteSpace': 'nowrap',
+                'color': '#1a3a5c', 'whiteSpace': 'nowrap',
             }),
-            html.Td(f"{row['open']:.4f}",    style={'padding': '5px 12px', 'fontSize': '12px', 'textAlign': 'center', 'fontFamily': 'monospace'}),
-            html.Td(f"{row['high']:.4f}",    style={'padding': '5px 12px', 'fontSize': '12px', 'textAlign': 'center', 'fontFamily': 'monospace'}),
-            html.Td(f"{row['low']:.4f}",     style={'padding': '5px 12px', 'fontSize': '12px', 'textAlign': 'center', 'fontFamily': 'monospace'}),
-            html.Td(f"{row['close']:.4f}",   style={'padding': '5px 12px', 'fontSize': '12px', 'textAlign': 'center', 'fontFamily': 'monospace'}),
-            html.Td(str(int(row['volume'])), style={'padding': '5px 12px', 'fontSize': '12px', 'textAlign': 'center'}),
+            html.Td(r['category'], style={
+                'padding': '5px 12px', 'fontSize': '11px',
+                'textAlign': 'center', 'color': '#444', 'fontWeight': '500',
+            }),
+            html.Td(r['type'], style={
+                'padding': '5px 12px', 'fontSize': '11px',
+                'textAlign': 'center', 'color': '#666',
+            }),
+            html.Td(r['currency'], style={
+                'padding': '5px 12px', 'fontSize': '11px',
+                'textAlign': 'center', 'color': '#666',
+            }),
+            html.Td(units_str, style={
+                'padding': '5px 12px', 'fontSize': '12px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+            }),
+            html.Td(price_str, style={
+                'padding': '5px 12px', 'fontSize': '12px',
+                'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#555',
+            }),
             html.Td(
-                html.Button(
-                    "Edit",
-                    id={'type': 'edit-btn', 'date': row['date'], 'fund': fund_id},
-                    n_clicks=0,
-                    style={
-                        'backgroundColor': '#2E75B6', 'color': 'white',
-                        'border': 'none', 'borderRadius': '3px',
-                        'padding': '3px 10px', 'fontSize': '11px', 'cursor': 'pointer',
-                    }
-                ),
-                style={'padding': '5px 12px', 'textAlign': 'center'}
+                f"£{r['value']:,.0f}" if r['value'] else 'N/A',
+                style={
+                    'padding': '5px 12px', 'fontSize': '12px',
+                    'textAlign': 'right', 'fontFamily': 'monospace',
+                    'fontWeight': '600', 'color': '#1a3a5c',
+                }
+            ),
+            html.Td(
+                f"{pct:.1f}%" if pct else 'N/A',
+                style={
+                    'padding': '5px 12px', 'fontSize': '12px',
+                    'textAlign': 'center', 'fontFamily': 'monospace', 'color': '#555',
+                }
             ),
         ], style={'borderBottom': '1px solid #f0f3f7'}))
 
-    return html.Div([
-        html.P(f"{len(records)} records found",
-               style={'fontSize': '11px', 'color': '#999', 'marginBottom': '8px'}),
-        html.Table([html.Thead(header), html.Tbody(rows)],
-                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+    # Total row
+    rows.append(html.Tr([
+        html.Td("TOTAL", colSpan=6, style={
+            'padding': '8px 12px', 'fontSize': '12px',
+            'fontWeight': '700', 'color': '#1a3a5c',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td(f"£{total:,.2f}", style={
+            'padding': '8px 12px', 'fontSize': '13px',
+            'textAlign': 'right', 'fontFamily': 'monospace',
+            'fontWeight': '700', 'color': '#1a3a5c',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td("100%", style={
+            'padding': '8px 12px', 'fontSize': '12px',
+            'textAlign': 'center', 'color': '#666',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+    ]))
+
+    table = html.Table(
+        [html.Thead(header), html.Tbody(rows)],
+        style={'width': '100%', 'borderCollapse': 'collapse'}
+    )
+
+    # ── Category breakdown table
+    from collections import defaultdict
+    cat_totals = defaultdict(float)
+    for r in rows_data:
+        if r['value']:
+            cat_totals[r['category']] += r['value']
+
+    cat_header = html.Tr([
+        html.Th(c, style={
+            'backgroundColor': '#1a3a5c', 'color': 'white',
+            'padding': '6px 10px', 'fontSize': '11px', 'fontWeight': '600',
+            'textAlign': 'left' if i == 0 else 'right', 'whiteSpace': 'nowrap',
+        }) for i, c in enumerate(['Category', 'Value (£)', '%'])
+    ])
+
+    cat_rows = []
+    for cat, val in sorted(cat_totals.items(), key=lambda x: x[1], reverse=True):
+        pct = val / total * 100 if total else 0
+        cat_rows.append(html.Tr([
+            html.Td(cat, style={
+                'padding': '5px 10px', 'fontSize': '12px',
+                'color': '#1a3a5c', 'fontWeight': '500',
+            }),
+            html.Td(f"£{val:,.0f}", style={
+                'padding': '5px 10px', 'fontSize': '12px',
+                'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '600',
+            }),
+            html.Td(f"{pct:.1f}%", style={
+                'padding': '5px 10px', 'fontSize': '12px',
+                'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#555',
+            }),
+        ], style={'borderBottom': '1px solid #f0f3f7'}))
+
+    cat_rows.append(html.Tr([
+        html.Td("TOTAL", style={
+            'padding': '7px 10px', 'fontSize': '12px',
+            'fontWeight': '700', 'color': '#1a3a5c',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td(f"£{total:,.0f}", style={
+            'padding': '7px 10px', 'fontSize': '12px',
+            'textAlign': 'right', 'fontFamily': 'monospace',
+            'fontWeight': '700', 'color': '#1a3a5c',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td("100%", style={
+            'padding': '7px 10px', 'fontSize': '12px',
+            'textAlign': 'right', 'color': '#666',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+    ]))
+
+    cat_table = html.Div([
+        html.P("BY CATEGORY", style={**SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px'}),
+        html.Table(
+            [html.Thead(cat_header), html.Tbody(cat_rows)],
+            style={'width': '100%', 'borderCollapse': 'collapse'}
+        ),
     ], style=CARD)
+
+    return html.Div(table, style=CARD), f"£{total:,.2f}", cat_table
 
 
 @app.callback(
-    Output('editor-form-div', 'children'),
-    Output('editor-selected', 'data'),
-    Input({'type': 'edit-btn', 'date': ALL, 'fund': ALL}, 'n_clicks'),
+    Output('portfolio-status',  'children'),
+    Output('portfolio-reload',  'data'),
+    Output('portfolio-units-input', 'value'),
+    Input('portfolio-save-btn',   'n_clicks'),
+    Input('portfolio-remove-btn', 'n_clicks'),
+    State('portfolio-fund-select',  'value'),
+    State('portfolio-units-input',  'value'),
+    State('portfolio-reload',       'data'),
     prevent_initial_call=True,
 )
-def show_edit_form(n_clicks):
-    if not any(n_clicks):
-        return html.Div(), {}
-
-    triggered = ctx.triggered_id
-    if not triggered:
-        return html.Div(), {}
-
-    date = triggered['date']
-    fund = triggered['fund']
-
-    conn = sqlite3.connect(DB_PATH)
-    row = conn.execute(
-        "SELECT close FROM fund_prices WHERE fund_id=? AND date=?",
-        (fund, date)
-    ).fetchone()
-    conn.close()
-
-    if not row:
-        return html.Div(), {}
-
-    current_close = row[0]
-
-    form = html.Div([
-        html.P("EDIT RECORD", style=SECTION_TITLE),
-        html.P(f"Fund: {fund}  |  Date: {date}",
-               style={'fontSize': '12px', 'color': '#666', 'marginBottom': '12px'}),
-        html.Div([
-            html.Label("Close Price:", style={
-                'fontSize': '12px', 'marginRight': '8px', 'alignSelf': 'center',
-            }),
-            dcc.Input(
-                id='editor-close-input',
-                type='number',
-                value=round(current_close, 4),
-                step=0.0001,
-                style={
-                    'padding': '6px', 'fontSize': '12px',
-                    'border': '1px solid #ccc', 'borderRadius': '4px',
-                    'width': '150px', 'marginRight': '12px',
-                },
-            ),
-            html.Button("Save", id='editor-save-btn', n_clicks=0, style={
-                'backgroundColor': '#1a7a1a', 'color': 'white',
-                'border': 'none', 'borderRadius': '4px',
-                'padding': '7px 16px', 'fontSize': '12px',
-                'cursor': 'pointer', 'marginRight': '8px',
-            }),
-            html.Button("Cancel", id='editor-cancel-btn', n_clicks=0, style={
-                'backgroundColor': '#999', 'color': 'white',
-                'border': 'none', 'borderRadius': '4px',
-                'padding': '7px 16px', 'fontSize': '12px', 'cursor': 'pointer',
-            }),
-        ], style={'display': 'flex', 'alignItems': 'center'}),
-    ], style=CARD)
-
-    return form, {'fund': fund, 'date': date}
-
-
-@app.callback(
-    Output('editor-status',   'children'),
-    Output('editor-form-div', 'children', allow_duplicate=True),
-    Output('db-reload-trigger', 'data'),
-    Input('editor-save-btn',    'n_clicks'),
-    Input('editor-cancel-btn',  'n_clicks'),
-    State('editor-close-input', 'value'),
-    State('editor-selected',    'data'),
-    State('db-reload-trigger',  'data'),
-    prevent_initial_call=True,
-)
-def save_or_cancel(save_clicks, cancel_clicks, new_close, selected, reload_trigger):
+def update_portfolio_entry(save_clicks, remove_clicks, fund_id, units, reload):
     triggered = ctx.triggered_id
 
-    if triggered == 'editor-cancel-btn':
-        return '', html.Div(), reload_trigger
+    if not fund_id:
+        return 'Please select a fund first.', reload, units
 
-    if triggered == 'editor-save-btn' and new_close is not None and selected:
-        fund = selected.get('fund')
-        date = selected.get('date')
-        if not fund or not date:
-            return 'Error: no record selected.', html.Div(), reload_trigger
+    portfolio = load_portfolio()
 
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute(
-            "UPDATE fund_prices SET close=? WHERE fund_id=? AND date=?",
-            (float(new_close), fund, date)
-        )
-        conn.commit()
-        conn.close()
+    if triggered == 'portfolio-save-btn':
+        if units is None or units <= 0:
+            return 'Please enter a valid number of units.', reload, units
+        # Update or add
+        existing = next((i for i, x in enumerate(portfolio) if x['fund_id'] == fund_id), None)
+        if existing is not None:
+            portfolio[existing]['units'] = float(units)
+            msg = f"✓ Updated {fund_id} → {units} units"
+        else:
+            portfolio.append({'fund_id': fund_id, 'units': float(units)})
+            msg = f"✓ Added {fund_id} → {units} units"
+        save_portfolio(portfolio)
+        return msg, reload + 1, None
 
-        return (
-            f"✓ Saved: {fund} on {date} → close updated to {new_close}",
-            html.Div(),
-            (reload_trigger or 0) + 1,
-        )
+    if triggered == 'portfolio-remove-btn':
+        before = len(portfolio)
+        portfolio = [x for x in portfolio if x['fund_id'] != fund_id]
+        if len(portfolio) < before:
+            save_portfolio(portfolio)
+            return f"✓ Removed {fund_id}", reload + 1, None
+        return f"Fund not found in portfolio.", reload, units
 
-    return '', html.Div(), reload_trigger
+    return '', reload, units
 
 
 # ── 9. RUN ─────────────────────────────────────────────────────
