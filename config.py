@@ -146,8 +146,12 @@ YAHOO_TICKERS = [
     ("NRGT.L", "WisdomTree Energy Transition ETC", "Commodity"),
     ("NGSP.L", "WisdomTree Natural Gas ETC", "Commodity"),
     ("COCO", "WisdomTree Cocoa", "Commodity"),
+    ("AIGA.L",   "WisdomTree Agriculture ETC",  "Commodity"),
+    ("IGLN.L",   "iShares Physical Gold ETC",    "Commodity"),
+    ("ISLN.L",   "iShares Physical Silver ETC",  "Commodity"),
     # Currencies & FX
     ("GBPUSD=X", "GBP/USD", "Index"),
+    ("GBPTRY=X",  "GBP/TRY", "Index"),
     ("CNY=X", "USD/CNY", "Index"),
     # Crypto
     ("BTC-GBP", "Bitcoin GBP", "Commodity"),
@@ -170,9 +174,10 @@ YAHOO_TICKERS = [
     ("HFG.L", "Hilton Food Group", "Stock"),
     ("CCH.L", "Coca-Cola HBC", "Stock"),
     ("BA.L", "BAE Systems", "Stock"),
-    ("AIGA.L",   "WisdomTree Agriculture ETC",  "Commodity"),
-    ("IGLN.L",   "iShares Physical Gold ETC",    "Commodity"),
-    ("ISLN.L",   "iShares Physical Silver ETC",  "Commodity"),
+    ("SAHOL.IS",  "Sabanci Holding",   "Stock"),
+    ("PETKM.IS",  "Petkim",            "Stock"),
+    ("ASELS.IS",  "Aselsan",           "Stock"),
+    ("ALARK.IS",  "Alarko Holding",    "Stock"),    
 ]
 
 

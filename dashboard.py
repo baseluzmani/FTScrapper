@@ -64,27 +64,44 @@ def save_portfolio(portfolio):
         json.dump(portfolio, f, indent=2)
 
 
+def get_fx_rates(df):
+    """Get latest FX rates from database. Returns dict of currency -> GBP rate."""
+    rates = {}
+    # GBPUSD=X gives how many USD per 1 GBP
+    fx = df[df['fund_id'] == 'YF:GBPUSD=X'].sort_values('date')
+    rates['USD'] = fx.iloc[-1]['close'] if not fx.empty else 1.26
+
+    # GBPTRY=X gives how many TRY per 1 GBP
+    fx2 = df[df['fund_id'] == 'YF:GBPTRY=X'].sort_values('date')
+    rates['TRY'] = fx2.iloc[-1]['close'] if not fx2.empty else 43.0
+
+    return rates
+
+
 def get_gbpusd(df):
     """Get latest GBP/USD rate from database."""
-    fx_df = df[df['fund_id'] == 'YF:GBPUSD=X'].sort_values('date')
-    if fx_df.empty:
-        return 1.26  # fallback
-    return fx_df.iloc[-1]['close']
+    return get_fx_rates(df)['USD']
 
 
-def to_gbp(price, price_unit, currency, gbpusd):
+def to_gbp(price, price_unit, currency, gbpusd, fx_rates=None):
     """Convert a price to GBP pounds."""
     if price is None:
         return None
     # Convert pence to pounds
     if price_unit == 'pence':
         price = price / 100
+    # Points/ratios — Turkish stocks are priced as points in TRY
+    # We convert TRY points to GBP
+    if price_unit == 'point':
+        if currency == 'TRY' and fx_rates:
+            price = price / fx_rates['TRY']
+        else:
+            return None
+    elif price_unit == 'ratio':
+        return None
     # Convert USD to GBP
     if currency == 'USD':
-        price = price / gbpusd
-    # Points/ratios are not convertible to GBP value
-    if price_unit in ('point', 'ratio'):
-        return None
+        price = price / (fx_rates['USD'] if fx_rates else gbpusd)
     return price
 
 
@@ -525,12 +542,29 @@ all_holding_ids       = holding_ids_default + composite_ids
 top4_holdings_default = get_top4_by_ytd(df_combined, all_holding_ids)
 
 # Portfolio fund options — all funds in instruments table
-# Include fixed-price instruments (CASH/ASSET), exclude points/ratios
+# Exclude: GBP/USD/ratio FX pairs and non-TRY points (indices)
+# Include: everything that can be converted to GBP value
+def _include_in_portfolio(fund_id, inst):
+    unit = inst.get('price_unit', '')
+    curr = inst.get('currency', '')
+    # Always include fixed-price instruments
+    if fund_id.startswith(('CASH:', 'ASSET:')):
+        return True
+    # Exclude pure FX ratios
+    if unit == 'ratio':
+        return False
+    # Include TRY points (Turkish stocks) — we can convert via GBPTRY
+    if unit == 'point' and curr == 'TRY':
+        return True
+    # Exclude other points (indices like FTSE, S&P)
+    if unit == 'point':
+        return False
+    return True
+
 portfolio_options = [
     {'label': f"{v['name']} ({k})", 'value': k}
     for k, v in sorted(instruments.items(), key=lambda x: x[1]['name'])
-    if v['price_unit'] not in ('point', 'ratio')
-    or k.startswith('CASH:') or k.startswith('ASSET:')
+    if _include_in_portfolio(k, v)
 ]
 
 # ── 3. STYLES ──────────────────────────────────────────────────
@@ -1020,6 +1054,7 @@ def update_market_chart(selected_funds, since_date):
 def update_portfolio(reload, tab):
     portfolio  = load_portfolio()
     gbpusd     = get_gbpusd(df)
+    fx_rates   = get_fx_rates(df)
 
     if not portfolio:
         return html.P(
@@ -1051,7 +1086,11 @@ def update_portfolio(reload, tab):
             price = 1.0
         else:
             price = get_latest_price(df_combined, fid)
-        gbp   = to_gbp(price, punit, curr, gbpusd) if price else None
+        # For CASH:TRY treat price_unit as 'point' so TRY conversion applies
+        effective_unit = punit
+        if fid == 'CASH:TRY':
+            effective_unit = 'point'
+        gbp   = to_gbp(price, effective_unit, curr, gbpusd, fx_rates) if price else None
         value = gbp * units if gbp is not None else None
         rows_data.append({
             'fund_id': fid, 'name': name, 'type': atype, 'category': cat,
