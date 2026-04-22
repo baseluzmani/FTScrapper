@@ -63,40 +63,6 @@ HEADERS = {
     ),
 }
 
-# --- Holdings ---
-# These are the funds shown in the My Holdings tab.
-# Add or remove entries to control what appears there.
-# fund_id must exactly match the fund_id in the database.
-
-HOLDINGS = [
-    # SL Pension Funds
-    {"fund_id": "GB0031728438:GBP", "display_name": "SL Asia Pacific Ex Japan"},
-    {"fund_id": "GB00B3VNFD68:GBP", "display_name": "SL BlackRock Gold & General"},
-    {"fund_id": "GB00B61JR401:GBP", "display_name": "SL JPM Natural Resources"},
-    {"fund_id": "GB00B849FB47:GBP", "display_name": "iShares Pacific ex Japan"},
-    {"fund_id": "GB00BF0TZK67:GBP", "display_name": "L&G Global Infrastructure"},
-    {
-        "fund_id": "GB00B3K5WJ87:GBP",
-        "display_name": "SL Macquarie Global Infrastructure Secs",
-    },
-    # ETFs
-    {"fund_id": "YF:AINF.L", "display_name": "iShares AI Infrastructure ETF"},
-    {"fund_id": "YF:DFEU.L", "display_name": "iShares Europe Def UETF"},
-    {"fund_id": "YF:MINE.L", "display_name": "iShares Copper Miners ETF"},
-    {"fund_id": "YF:NATP.L", "display_name": "Future of Defence ETF"},
-    {"fund_id": "YF:QWTM.L", "display_name": "WisdomTree Quantum Computing"},
-    # Stocks
-    {"fund_id": "YF:AMZN", "display_name": "Amazon"},
-    {"fund_id": "YF:HSBA.L", "display_name": "HSBC Holdings"},
-    # Commodities
-    {"fund_id": "YF:COPB.L", "display_name": "WisdomTree Copper ETC"},
-    {"fund_id": "YF:WEAP.L", "display_name": "WisdomTree Wheat ETC"},
-    {"fund_id": "YF:HG=F", "display_name": "Copper Futures"},
-    # Indices / Benchmarks
-    {"fund_id": "YF:XU030.IS", "display_name": "BIST 30"},
-    {"fund_id": "YF:^FTSE", "display_name": "FTSE 100"},
-]
-
 # --- Yahoo Finance Tickers ---
 # Format: (ticker, display_name, asset_type)
 # Asset types: Index, ETF, Commodity, Stock

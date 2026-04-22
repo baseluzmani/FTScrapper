@@ -273,14 +273,16 @@ def heatmap_color(val, vmin, vmax):
     if val == 0:
         return 'rgb(255,255,255)'
     if val > 0:
-        intensity = min(val / max(abs(vmax), 0.001), 1.0)
+        # Green intensity — cap at 3% for full green
+        intensity = min(abs(val) / 3.0, 1.0)
         r = int(255 - intensity * 180)
-        g = int(255 - intensity * 50)
+        g = 255
         b = int(255 - intensity * 180)
         return f'rgb({r},{g},{b})'
     else:
-        intensity = min(abs(val) / max(abs(vmin), 0.001), 1.0)
-        r = int(255 - intensity * 50)
+        # Red intensity — cap at 3% for full red
+        intensity = min(abs(val) / 3.0, 1.0)
+        r = 255
         g = int(255 - intensity * 180)
         b = int(255 - intensity * 180)
         return f'rgb({r},{g},{b})'
@@ -536,10 +538,9 @@ max_date     = df['date'].max().date()
 min_date     = df['date'].min().date()
 top4_default = get_top4_funds(df_combined, DEFAULT_DATE)
 
-holding_ids_default   = [h['fund_id'] for h in config.HOLDINGS]
-composite_ids         = [c['fund_id'] for c in getattr(config, 'COMPOSITE_FUNDS', [])]
-all_holding_ids       = holding_ids_default + composite_ids
-top4_holdings_default = get_top4_by_ytd(df_combined, all_holding_ids)
+# Top 4 from portfolio.json
+_portfolio_ids        = [h['fund_id'] for h in load_portfolio()]
+top4_holdings_default = get_top4_by_ytd(df_combined, _portfolio_ids)
 
 # Portfolio fund options — all funds in instruments table
 # Exclude: GBP/USD/ratio FX pairs and non-TRY points (indices)
@@ -639,6 +640,8 @@ app.layout = html.Div([
             dcc.Tab(label='Market Overview', value='tab-market',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
             dcc.Tab(label='Portfolio',       value='tab-portfolio',
+                    style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
+            dcc.Tab(label='P&L',             value='tab-pnl',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
         ],
         style={'backgroundColor': '#fff', 'borderBottom': '1px solid #eee', 'marginBottom': '0'}
@@ -827,11 +830,108 @@ app.layout = html.Div([
         'maxWidth': '1400px', 'margin': '0 auto',
     }),
 
+    # ── P&L TAB
+    html.Div([
+        # Header
+        html.Div([
+            html.Div([
+                html.P("P&L SUMMARY", style={**SECTION_TITLE, 'marginBottom': '0'}),
+                html.Div([
+                    html.Span(id='pnl-total-label', style={
+                        'fontSize': '20px', 'fontWeight': '700', 'color': '#1a3a5c',
+                    }),
+                ]),
+            ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
+        ], style=CARD),
+
+        # Toggle button
+        html.Div([
+            html.Button(
+                "Show Closed Positions",
+                id='pnl-toggle-btn',
+                n_clicks=0,
+                style={
+                    'backgroundColor': '#1a3a5c', 'color': 'white',
+                    'border': 'none', 'borderRadius': '4px',
+                    'padding': '6px 14px', 'fontSize': '11px',
+                    'cursor': 'pointer', 'marginBottom': '8px',
+                }
+            ),
+        ]),
+        dcc.Store(id='pnl-show-closed', data=False),
+
+        # P&L table
+        html.Div(id='pnl-table-div'),
+
+        # Add transaction form
+        html.Div([
+            html.P("ADD TRANSACTION", style=SECTION_TITLE),
+            html.Div([
+                html.Div([
+                    html.Label("Fund:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='pnl-fund-select', options=portfolio_options,
+                                 placeholder='Select fund...', style={'fontSize': '12px'}),
+                ], style={'flex': '3', 'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Account:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='pnl-account-input', type='text', placeholder='e.g. AB ISA',
+                              style={'padding': '7px', 'fontSize': '12px', 'border': '1px solid #ccc',
+                                     'borderRadius': '4px', 'width': '120px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Date:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.DatePickerSingle(id='pnl-date-input', date=datetime.today().date(),
+                                         display_format='DD MMM YYYY'),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Type:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='pnl-type-select', options=[
+                        {'label': 'BUY', 'value': 'BUY'},
+                        {'label': 'SELL', 'value': 'SELL'},
+                    ], value='BUY', clearable=False, style={'fontSize': '12px', 'width': '90px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Quantity:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='pnl-qty-input', type='number', placeholder='e.g. 100',
+                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
+                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '100px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Price:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='pnl-price-input', type='number', placeholder='e.g. 248.3',
+                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
+                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '100px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("FX Rate:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='pnl-fx-input', type='number', placeholder='1.0', value=1.0,
+                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
+                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '80px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label(" ", style={'fontSize': '11px', 'display': 'block', 'marginBottom': '4px'}),
+                    html.Button("Add", id='pnl-add-btn', n_clicks=0, style={
+                        'backgroundColor': '#1a7a1a', 'color': 'white', 'border': 'none',
+                        'borderRadius': '4px', 'padding': '7px 16px', 'fontSize': '12px', 'cursor': 'pointer',
+                    }),
+                ]),
+            ], style={'display': 'flex', 'alignItems': 'flex-end', 'flexWrap': 'wrap', 'gap': '4px'}),
+            html.Div(id='pnl-status', style={'fontSize': '12px', 'color': '#2E75B6', 'marginTop': '8px', 'fontWeight': '600'}),
+        ], style=CARD),
+
+    ], id='pnl-tab-content', style={
+        'display': 'none', 'padding': '12px 16px 16px 16px',
+        'maxWidth': '1400px', 'margin': '0 auto',
+    }),
+
     # Shared stores
     dcc.Store(id='sort-state-holdings', data={'col': 'YTD', 'asc': False}),
     dcc.Store(id='sort-state-market',   data={'col': 'YTD', 'asc': False}),
     dcc.Store(id='db-reload-trigger',   data=0),
     dcc.Store(id='portfolio-reload',    data=0),
+
+    # Auto-refresh every 60 minutes
+    dcc.Interval(id='auto-refresh', interval=60*60*1000, n_intervals=0),
 
 ], style={
     'fontFamily': '"DM Sans", -apple-system, BlinkMacSystemFont, sans-serif',
@@ -846,13 +946,15 @@ app.layout = html.Div([
     Output('holdings-tab-content',  'style'),
     Output('market-tab-content',    'style'),
     Output('portfolio-tab-content', 'style'),
+    Output('pnl-tab-content',       'style'),
     Output('data-date-label',       'children'),
     Input('main-tabs',         'value'),
     Input('db-reload-trigger', 'data'),
+    Input('auto-refresh',      'n_intervals'),
 )
-def switch_tab(tab, reload_trigger):
+def switch_tab(tab, reload_trigger, n_intervals):
     global df, df_composite, df_combined, instruments
-    if reload_trigger:
+    if reload_trigger or n_intervals:
         df           = load_data()
         df_composite = build_composite_data(df)
         df_calc      = build_calculated_series(df)
@@ -864,19 +966,18 @@ def switch_tab(tab, reload_trigger):
 
     date_label = f"Data as of {df['date'].max().strftime('%d %b %Y')}"
     base = {'padding': '12px 16px 16px 16px', 'maxWidth': '1400px', 'margin': '0 auto'}
-    base_port = {'padding': '12px 16px 16px 16px', 'maxWidth': '1400px', 'margin': '0 auto'}
-    show      = {**base,      'display': 'block'}
-    show_port = {**base_port, 'display': 'block'}
-    hide      = {**base,      'display': 'none'}
-    hide_port = {**base_port, 'display': 'none'}
+    show = {**base, 'display': 'block'}
+    hide = {**base, 'display': 'none'}
 
     if tab == 'tab-holdings':
-        return show, hide, hide_port, date_label
+        return show, hide, hide, hide, date_label
     elif tab == 'tab-market':
-        return hide, show, hide_port, date_label
+        return hide, show, hide, hide, date_label
     elif tab == 'tab-portfolio':
-        return hide, hide, show_port, date_label
-    return show, hide, hide_port, date_label
+        return hide, hide, show, hide, date_label
+    elif tab == 'tab-pnl':
+        return hide, hide, hide, show, date_label
+    return show, hide, hide, hide, date_label
 
 
 # ── 6. HOLDINGS CALLBACKS ──────────────────────────────────────
@@ -923,17 +1024,15 @@ def update_holdings(since_date, n_clicks, selected_funds, sort_state):
             sort_state['col'] = clicked_col
             sort_state['asc'] = False
 
-    holding_ids   = [h['fund_id'] for h in config.HOLDINGS]
-    holding_names = {h['fund_id']: h['display_name'] for h in config.HOLDINGS}
-    composites    = getattr(config, 'COMPOSITE_FUNDS', [])
-    composite_ids = [c['fund_id'] for c in composites]
-    comp_names    = {c['fund_id']: c['display_name'] for c in composites}
-    all_ids       = holding_ids + composite_ids
-    all_names     = {**holding_names, **comp_names}
+    # Read holdings from portfolio.json — single source of truth
+    portfolio     = load_portfolio()
+    holding_ids   = [h['fund_id'] for h in portfolio]
+    # Use instrument names for display
+    all_names     = {fid: instruments.get(fid, {}).get('name', fid) for fid in holding_ids}
 
-    holdings_df = df_combined[df_combined['fund_id'].isin(all_ids)].copy()
+    holdings_df = df_combined[df_combined['fund_id'].isin(holding_ids)].copy()
     if holdings_df.empty:
-        return html.P("No holdings found.", style={'color': '#999', 'fontSize': '12px'}), sort_state
+        return html.P("No holdings found. Add funds in the Portfolio tab.", style={'color': '#999', 'fontSize': '12px'}), sort_state
 
     table_df = build_returns_table(holdings_df, since_date)
     table_df['Fund'] = table_df['fund_id'].map(lambda fid: all_names.get(fid, fid))
@@ -944,9 +1043,9 @@ def update_holdings(since_date, n_clicks, selected_funds, sort_state):
         table_df = table_df.sort_values(sort_col, ascending=sort_asc, na_position='last')
 
     sections = []
-    for asset_type, group in table_df.groupby('Type', sort=False):
+    for cat, group in table_df.groupby('Type', sort=False):
         sections.append(html.Div([
-            html.P(asset_type.upper(), style={
+            html.P(cat.upper(), style={
                 **SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px',
             }),
             render_returns_table(
@@ -1081,17 +1180,39 @@ def update_portfolio(reload, tab):
         curr  = inst.get('currency', '?')
         punit = inst.get('price_unit', '?')
         # Fixed-price instruments (cash, house) use 1.0 as price
-        # Units = the actual value in the instrument's currency
         if fid.startswith('CASH:') or fid.startswith('ASSET:'):
             price = 1.0
+            effective_unit = punit
+            if fid == 'CASH:TRY':
+                effective_unit = 'point'
+            gbp   = to_gbp(price, effective_unit, curr, gbpusd, fx_rates)
+            value = gbp * units if gbp is not None else None
+
+        # Composite funds — weighted average of underlying real fund prices
+        elif fid.startswith('COMPOSITE:'):
+            comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', []) if c['fund_id'] == fid), None)
+            if comp_def:
+                weighted_gbp = 0.0
+                for c in comp_def['components']:
+                    c_price = get_latest_price(df_combined, c['fund_id'])
+                    c_inst  = instruments.get(c['fund_id'], {})
+                    c_gbp   = to_gbp(c_price, c_inst.get('price_unit','pence'), c_inst.get('currency','GBP'), gbpusd, fx_rates)
+                    if c_gbp is not None:
+                        weighted_gbp += c_gbp * c['weight']
+                price = weighted_gbp
+                gbp   = weighted_gbp if weighted_gbp > 0 else None
+                value = gbp * units if gbp is not None else None
+            else:
+                price = None
+                gbp   = None
+                value = None
+
+        # Regular funds/ETFs/stocks
         else:
             price = get_latest_price(df_combined, fid)
-        # For CASH:TRY treat price_unit as 'point' so TRY conversion applies
-        effective_unit = punit
-        if fid == 'CASH:TRY':
-            effective_unit = 'point'
-        gbp   = to_gbp(price, effective_unit, curr, gbpusd, fx_rates) if price else None
-        value = gbp * units if gbp is not None else None
+            effective_unit = punit
+            gbp   = to_gbp(price, effective_unit, curr, gbpusd, fx_rates) if price else None
+            value = gbp * units if gbp is not None else None
         rows_data.append({
             'fund_id': fid, 'name': name, 'type': atype, 'category': cat,
             'currency': curr, 'units': units,
@@ -1125,6 +1246,9 @@ def update_portfolio(reload, tab):
             price_str = 'Fixed'
         elif price is None:
             price_str = 'N/A'
+        elif r['fund_id'].startswith('COMPOSITE:'):
+            # Composite price is already in GBP pounds (weighted average)
+            price_str = f"{price:.2f}"
         elif punit == 'pence' and curr == 'GBP':
             price_str = f"{price / 100:.1f}"
         else:
@@ -1304,7 +1428,451 @@ def update_portfolio_entry(save_clicks, remove_clicks, fund_id, units, reload):
     return '', reload, units
 
 
-# ── 9. RUN ─────────────────────────────────────────────────────
+# ── 9. P&L CALLBACKS ──────────────────────────────────────────
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)
+def txn_price_to_gbp(price, txn_currency, txn_fx_rate, price_unit="pound"):
+    """Convert a transaction price to GBP pounds.
+    Uses price_unit from instruments table to handle pence conversion.
+    """
+    p  = float(price)
+    fx = float(txn_fx_rate) if txn_fx_rate else 1.0
+    c  = str(txn_currency or "GBP").strip().upper()
+
+    # Convert pence to pounds for GBP instruments
+    if price_unit == "pence" and c == "GBP":
+        p = p / 100
+
+    if c in ("GBP", "GBPC"):
+        return p
+    elif c == "USD":
+        return p / fx
+    elif c == "XAU":
+        return p
+    elif c == "TRY":
+        return p / fx
+    return p
+
+
+def calc_pnl(gbpusd, fx_rates):
+    conn = sqlite3.connect(DB_PATH)
+    txns = pd.read_sql_query(
+        """SELECT t.fund_id, t.account, t.trade_date, t.type,
+               t.quantity, t.price, t.currency, t.fx_rate,
+               i.name, i.price_unit, i.category
+        FROM transactions t
+        LEFT JOIN instruments i ON t.fund_id = i.fund_id
+        ORDER BY t.fund_id, t.trade_date""", conn)
+    conn.close()
+
+    if txns.empty:
+        return pd.DataFrame()
+
+    results = []
+    for fund_id, group in txns.groupby("fund_id"):
+        inst     = instruments.get(fund_id, {})
+        name     = inst.get("name", fund_id)
+        category = inst.get("category", "—")
+        punit    = inst.get("price_unit", "pound")
+        curr     = inst.get("currency", "GBP")
+
+        total_qty       = 0.0
+        total_cost_gbp  = 0.0
+        realised_pnl    = 0.0   # accumulated P&L from closed positions
+
+        for _, r in group.iterrows():
+            qty   = float(r["quantity"])
+            price = float(r["price"])
+            ttype = r["type"]
+
+            # Use transaction currency/fx + instrument price_unit to convert to GBP
+            cost_per_unit = txn_price_to_gbp(price, r["currency"], r["fx_rate"], punit)
+            cost_gbp      = qty * cost_per_unit
+
+            if ttype == "BUY":
+                total_qty      += qty
+                total_cost_gbp += cost_gbp
+
+            elif ttype == "SELL":
+                if total_qty > 0:
+                    avg_cost = total_cost_gbp / total_qty
+                    sell_qty = min(qty, total_qty)
+                    # Realised P&L = sell proceeds - avg cost basis
+                    realised_pnl   += sell_qty * (cost_per_unit - avg_cost)
+                    total_cost_gbp -= sell_qty * avg_cost
+                    total_qty      -= sell_qty
+                    total_qty       = max(total_qty, 0)
+
+        avg_cost_gbp = total_cost_gbp / total_qty if total_qty > 0 else 0
+
+        # Current market value of open position
+        if total_qty > 0:
+            if fund_id.startswith("COMPOSITE:"):
+                comp_def = next((c for c in getattr(config, "COMPOSITE_FUNDS", []) if c["fund_id"] == fund_id), None)
+                current_price_gbp = None
+                if comp_def:
+                    weighted = 0.0
+                    for c in comp_def["components"]:
+                        cp   = get_latest_price(df_combined, c["fund_id"])
+                        ci   = instruments.get(c["fund_id"], {})
+                        cgbp = to_gbp(cp, ci.get("price_unit","pence"), ci.get("currency","GBP"), gbpusd, fx_rates)
+                        if cgbp:
+                            weighted += cgbp * c["weight"]
+                    current_price_gbp = weighted if weighted > 0 else None
+            elif fund_id.startswith(("CASH:", "ASSET:")):
+                current_price_gbp = 1.0
+            else:
+                cp = get_latest_price(df_combined, fund_id)
+                current_price_gbp = to_gbp(cp, punit, curr, gbpusd, fx_rates)
+
+            current_value    = current_price_gbp * total_qty if current_price_gbp else None
+            unrealised_pnl   = (current_value - total_cost_gbp) if current_value is not None else None
+        else:
+            current_value  = None
+            unrealised_pnl = None
+
+        # Total P&L = realised + unrealised
+        if unrealised_pnl is not None:
+            total_pnl = realised_pnl + unrealised_pnl
+        elif realised_pnl != 0:
+            total_pnl = realised_pnl
+        else:
+            continue  # fully closed with no P&L data, skip
+
+        total_cost_all = total_cost_gbp + (realised_pnl if realised_pnl < 0 else 0)
+        pnl_pct = (total_pnl / (total_cost_gbp + abs(realised_pnl)) * 100) if (total_cost_gbp + abs(realised_pnl)) > 0 else None
+
+        results.append({
+            "fund_id":       fund_id,
+            "Fund":          name,
+            "Category":      category,
+            "Qty":           total_qty,
+            "Avg Cost":      avg_cost_gbp,
+            "Cost Basis":    total_cost_gbp,
+            "Current Value": current_value,
+            "Realised":      realised_pnl,
+            "PnL":           total_pnl,
+            "PnL Pct":       pnl_pct,
+        })
+
+    return pd.DataFrame(results)
+
+
+@app.callback(
+    Output('pnl-show-closed', 'data'),
+    Output('pnl-toggle-btn',  'children'),
+    Output('pnl-toggle-btn',  'style'),
+    Input('pnl-toggle-btn',   'n_clicks'),
+    State('pnl-show-closed',  'data'),
+    prevent_initial_call=True,
+)
+def toggle_closed(n_clicks, show_closed):
+    new_state = not show_closed
+    label = "Hide Closed Positions" if new_state else "Show Closed Positions"
+    style = {
+        'backgroundColor': '#c0392b' if new_state else '#1a3a5c',
+        'color': 'white', 'border': 'none', 'borderRadius': '4px',
+        'padding': '6px 14px', 'fontSize': '11px',
+        'cursor': 'pointer', 'marginBottom': '8px',
+    }
+    return new_state, label, style
+
+
+@app.callback(
+    Output("pnl-table-div",   "children"),
+    Output("pnl-total-label", "children"),
+    Input("main-tabs",        "value"),
+    Input("pnl-status",       "children"),
+    Input("pnl-show-closed",  "data"),
+)
+def update_pnl(tab, _, show_closed):
+    if tab != "tab-pnl":
+        return html.Div(), ""
+
+    gbpusd   = get_gbpusd(df)
+    fx_rates = get_fx_rates(df)
+    pnl_df   = calc_pnl(gbpusd, fx_rates)
+
+    if pnl_df.empty:
+        return html.P("No transactions found.", style={"color": "#999"}), ""
+
+    pnl_df = pnl_df.sort_values("Current Value", ascending=False, na_position="last")
+
+    total_cost    = pnl_df["Cost Basis"].sum()
+    total_value   = pnl_df["Current Value"].dropna().sum()
+    total_pnl     = pnl_df["PnL"].dropna().sum()
+    total_pnl_pct = (total_pnl / (total_cost + pnl_df["Realised"].abs().sum()) * 100) if total_cost else 0
+    pnl_color     = "#1a7a1a" if total_pnl >= 0 else "#c0392b"
+
+    total_label = ""  # removed from header — shown in TOTAL row
+
+    header = html.Tr([
+        html.Th(c, style={
+            "backgroundColor": "#1a3a5c", "color": "white",
+            "padding": "6px 10px", "fontSize": "11px", "fontWeight": "600",
+            "textAlign": "left" if i == 0 else "right", "whiteSpace": "nowrap",
+        }) for i, c in enumerate(["Fund", "Category", "Price", "Avg Cost", "Qty", "Current Value", "P&L", "P&L %", "1D £", "1D %", "1W %", "1M %"])
+    ])
+
+    # Split open and closed
+    open_df   = pnl_df[pnl_df["Qty"] > 0]
+    closed_df = pnl_df[pnl_df["Qty"] == 0]
+
+    # Compute return ranges for heatmap colouring
+    def get_returns_for_df(df_subset):
+        ret_1d, ret_1w, ret_1m = [], [], []
+        for fid in df_subset["fund_id"]:
+            r1d = calc_return(df_combined, fid, days_back=1)
+            r1w = calc_return(df_combined, fid, days_back=5)
+            r1m = calc_return(df_combined, fid, days_back=21)
+            if r1d is not None: ret_1d.append(r1d)
+            if r1w is not None: ret_1w.append(r1w)
+            if r1m is not None: ret_1m.append(r1m)
+        return (
+            (min(ret_1d), max(ret_1d)) if ret_1d else (0, 0),
+            (min(ret_1w), max(ret_1w)) if ret_1w else (0, 0),
+            (min(ret_1m), max(ret_1m)) if ret_1m else (0, 0),
+        )
+
+    range_1d, range_1w, range_1m = get_returns_for_df(pnl_df)
+
+    def fmt_num(value, symbol="", suffix=""):
+        "Format number: 2dp if <100, 0dp if >=100."
+        if value < 100:
+            return f"{symbol}{value:,.2f}{suffix}"
+        else:
+            return f"{symbol}{value:,.0f}{suffix}"
+
+    def format_native_price(price, fund_id):
+        "Format price in its native currency without GBP conversion."
+        if price is None:
+            return "—"
+        inst  = instruments.get(fund_id, {})
+        punit = inst.get("price_unit", "pound")
+        curr  = inst.get("currency", "GBP")
+        sym   = {"GBP": "£", "USD": "$", "TRY": "₺"}.get(curr, "")
+        if punit == "pence":
+            return fmt_num(price, suffix="p")
+        elif punit == "point":
+            return fmt_num(price)
+        elif punit in ("dollar", "pound"):
+            return fmt_num(price, symbol=sym)
+        return fmt_num(price)
+
+    def make_rows(df_subset, is_closed=False):
+        result = []
+        for _, r in df_subset.iterrows():
+            pnl     = r["PnL"]
+            pnl_pct = r["PnL Pct"]
+            color   = "#1a7a1a" if pnl and pnl >= 0 else "#c0392b"
+            name    = r["Fund"]
+            ndisp   = name if len(name) <= 35 else name[:35] + "…"
+            fid     = r["fund_id"]
+            qty_str = f"{r['Qty']:,.4f}".rstrip("0").rstrip(".")
+
+            # Current price in native currency (for display only)
+            cp        = get_latest_price(df_combined, fid)
+            price_str = format_native_price(cp, fid) if cp else "—"
+
+            # Avg cost — convert back to native currency for display
+            # avg_cost is stored in GBP pounds, convert back
+            inst    = instruments.get(fid, {})
+            punit   = inst.get("price_unit", "pound")
+            curr    = inst.get("currency", "GBP")
+            avg_gbp = r["Avg Cost"]
+            if r["Qty"] > 0 and avg_gbp > 0:
+                if punit == "pence" and curr == "GBP":
+                    avg_native = avg_gbp * 100
+                    avg_str    = fmt_num(avg_native, suffix="p")
+                elif curr == "USD":
+                    avg_native = avg_gbp * (fx_rates.get("USD", 1.26))
+                    avg_str    = fmt_num(avg_native, symbol="$")
+                elif curr == "TRY":
+                    avg_native = avg_gbp * (fx_rates.get("TRY", 43.0))
+                    avg_str    = fmt_num(avg_native, symbol="₺")
+                else:
+                    avg_str    = fmt_num(avg_gbp, symbol="£")
+            else:
+                avg_str = "—"
+
+            if r["Qty"] > 0:
+                q = r["Qty"]
+                if q < 100:
+                    qty_display = f"{q:,.2f}".rstrip("0").rstrip(".")
+                else:
+                    qty_display = f"{q:,.0f}"
+            else:
+                qty_display = "—"
+            val_display = f"£{r['Current Value']:,.0f}" if r["Current Value"] else ("Closed" if r["Qty"] == 0 else "N/A")
+            row_bg      = "#fafafa" if is_closed else "transparent"
+
+            result.append(html.Tr([
+                html.Td(html.Span(ndisp, title=name), style={
+                    "padding": "5px 10px", "fontSize": "12px", "color": "#1a3a5c", "whiteSpace": "nowrap",
+                }),
+                html.Td(r["Category"], style={
+                    "padding": "5px 10px", "fontSize": "11px", "textAlign": "center", "color": "#666",
+                }),
+                html.Td(price_str, style={
+                    "padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
+                    "fontFamily": "monospace", "color": "#555",
+                }),
+                html.Td(avg_str, style={
+                    "padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
+                    "fontFamily": "monospace", "color": "#888",
+                }),
+                html.Td(qty_display, style={
+                    "padding": "5px 10px", "fontSize": "12px", "textAlign": "right", "fontFamily": "monospace",
+                }),
+                html.Td(val_display,
+                    style={"padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
+                           "fontFamily": "monospace", "fontWeight": "600", "color": "#1a3a5c"}
+                ),
+                html.Td(
+                    f"£{pnl:+,.0f}" if pnl is not None else "N/A",
+                    style={"padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
+                           "fontFamily": "monospace", "fontWeight": "700", "color": color}
+                ),
+                html.Td(
+                    f"{pnl_pct:+.1f}%" if pnl_pct is not None else "N/A",
+                    style={"padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
+                           "fontFamily": "monospace", "fontWeight": "600", "color": color}
+                ),
+            ] + [
+                # 1D £ — daily P&L in GBP
+                html.Td(
+                    f"£{r['Current Value'] * calc_return(df_combined, fid, days_back=1) / 100:+,.0f}"
+                    if r["Current Value"] and calc_return(df_combined, fid, days_back=1) is not None
+                    else "—",
+                    style={
+                        "padding": "4px 8px", "fontSize": "11px", "textAlign": "right",
+                        "fontFamily": "monospace", "fontWeight": "600",
+                        "color": "#1a7a1a" if (calc_return(df_combined, fid, days_back=1) or 0) >= 0 else "#c0392b",
+                    }
+                ),
+            ] + [
+                html.Td(
+                    f"{v:+.1f}%" if v is not None else "N/A",
+                    style={
+                        "padding": "4px 8px", "fontSize": "11px", "textAlign": "center",
+                        "fontWeight": "600", "fontFamily": "monospace",
+                        "backgroundColor": heatmap_color(v, rng[0], rng[1]),
+                        "color": "#1a1a1a", "borderRadius": "3px",
+                    }
+                )
+                for v, rng in [
+                    (calc_return(df_combined, fid, days_back=1),  range_1d),
+                    (calc_return(df_combined, fid, days_back=5),  range_1w),
+                    (calc_return(df_combined, fid, days_back=21), range_1m),
+                ]
+            ] + [
+            ], style={"borderBottom": "1px solid #f0f3f7", "backgroundColor": row_bg}))
+        return result
+
+    rows = make_rows(open_df)
+
+    # Closed positions — always show aggregated summary row
+    if not closed_df.empty:
+        closed_pnl   = closed_df["PnL"].dropna().sum()
+        closed_count = len(closed_df)
+        c_color      = "#1a7a1a" if closed_pnl >= 0 else "#c0392b"
+
+        if show_closed:
+            # Header row for closed section
+            rows.append(html.Tr([
+                html.Td(f"CLOSED POSITIONS ({closed_count})", colSpan=8, style={
+                    "padding": "6px 10px", "fontSize": "11px", "fontWeight": "700",
+                    "color": "#666", "backgroundColor": "#f0f3f7",
+                    "borderTop": "1px solid #ddd",
+                }),
+            ]))
+            rows.extend(make_rows(closed_df, is_closed=True))
+        else:
+            # Single aggregated row for closed positions
+            rows.append(html.Tr([
+                html.Td(f"Closed positions ({closed_count} instruments)", colSpan=5, style={
+                    "padding": "5px 10px", "fontSize": "12px", "color": "#888",
+                    "fontStyle": "italic",
+                }),
+                html.Td("Closed", style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb", "fontSize": "12px"}),
+                html.Td(f"£{closed_pnl:+,.0f}", style={
+                    "padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
+                    "fontFamily": "monospace", "fontWeight": "700", "color": c_color,
+                }),
+                html.Td("—", style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb"}),
+                html.Td("—", style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb"}),
+                html.Td("—", style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb"}),
+                html.Td("—", style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb"}),
+            ], style={"borderBottom": "1px solid #f0f3f7", "backgroundColor": "#fafafa"}))
+
+    # Calculate total 1D £
+    total_1d_gbp = sum(
+        r["Current Value"] * calc_return(df_combined, r["fund_id"], days_back=1) / 100
+        for _, r in open_df.iterrows()
+        if r["Current Value"] and calc_return(df_combined, r["fund_id"], days_back=1) is not None
+    )
+    d1_color = "#1a7a1a" if total_1d_gbp >= 0 else "#c0392b"
+
+    rows.append(html.Tr([
+        html.Td("TOTAL", colSpan=5, style={
+            "padding": "7px 10px", "fontSize": "12px", "fontWeight": "700",
+            "color": "#1a3a5c", "borderTop": "2px solid #1a3a5c",
+        }),
+        html.Td(f"£{total_value:,.0f}", style={
+            "padding": "7px 10px", "fontSize": "12px", "textAlign": "right",
+            "fontFamily": "monospace", "fontWeight": "700", "borderTop": "2px solid #1a3a5c",
+        }),
+        html.Td(f"£{total_pnl:+,.0f}", style={
+            "padding": "7px 10px", "fontSize": "12px", "textAlign": "right",
+            "fontFamily": "monospace", "fontWeight": "700", "color": pnl_color,
+            "borderTop": "2px solid #1a3a5c",
+        }),
+        html.Td(f"{total_pnl_pct:+.1f}%", style={
+            "padding": "7px 10px", "fontSize": "12px", "textAlign": "right",
+            "fontFamily": "monospace", "fontWeight": "700", "color": pnl_color,
+            "borderTop": "2px solid #1a3a5c",
+        }),
+        html.Td(f"£{total_1d_gbp:+,.0f}", style={
+            "padding": "7px 10px", "fontSize": "12px", "textAlign": "right",
+            "fontFamily": "monospace", "fontWeight": "700", "color": d1_color,
+            "borderTop": "2px solid #1a3a5c",
+        }),
+        html.Td("", colSpan=3, style={"borderTop": "2px solid #1a3a5c"}),
+    ]))
+
+    table = html.Table(
+        [html.Thead(header), html.Tbody(rows)],
+        style={"width": "100%", "borderCollapse": "collapse"}
+    )
+    return html.Div(table, style=CARD), total_label
+
+
+@app.callback(
+    Output("pnl-status", "children"),
+    Input("pnl-add-btn", "n_clicks"),
+    State("pnl-fund-select",   "value"),
+    State("pnl-account-input", "value"),
+    State("pnl-date-input",    "date"),
+    State("pnl-type-select",   "value"),
+    State("pnl-qty-input",     "value"),
+    State("pnl-price-input",   "value"),
+    State("pnl-fx-input",      "value"),
+    prevent_initial_call=True,
+)
+def add_transaction(n_clicks, fund_id, account, trade_date, ttype, qty, price, fx_rate):
+    if not all([fund_id, trade_date, ttype, qty, price]):
+        return "Please fill in all required fields."
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO transactions (fund_id, account, trade_date, type, quantity, price, currency, fx_rate) VALUES (?,?,?,?,?,?,?,?)",
+        (fund_id, account or "", trade_date, ttype, float(qty), float(price),
+         instruments.get(fund_id, {}).get("currency", "GBP"), float(fx_rate or 1.0))
+    )
+    conn.commit()
+    conn.close()
+    return f"✓ Added {ttype} {qty} × {instruments.get(fund_id, {}).get('name', fund_id)} @ {price} on {trade_date}"
+
+
+# ── 10. RUN ─────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", debug=True)
