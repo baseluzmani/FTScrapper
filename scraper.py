@@ -130,7 +130,7 @@ def scrape_fund(fund_id, fallback_name, latest_date=None):
         start_date = datetime.strptime(latest_date, "%Y-%m-%d") + timedelta(days=1)
         print(f"  Incremental run: fetching from {start_date.date()} to today")
 
-        if start_date.date() >= today.date():
+        if start_date.date() > today.date():
             print("  Already up to date.")
             return [], fallback_name
 

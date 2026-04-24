@@ -60,7 +60,7 @@ def main():
     database.create_table(conn)
 
     # Tickers where regularMarketPrice needs dividing by 100
-    DIVIDE_BY_100 = {'WEAP.L'}
+    DIVIDE_BY_100 = {'WEAP.L', 'NRGT.L'}
 
     updated = 0
     failed  = 0

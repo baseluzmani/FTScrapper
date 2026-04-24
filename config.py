@@ -26,6 +26,7 @@ FUNDS = [
     {"name": "L&G PMC Asia Pac ex Japan Dev Eq", "id": "GB00B4WT1Y33:GBP"},
     {"name": "L&G Future World ESG Optimised UK Index Fund", "id": "GB00BJH4XW03:GBP"},
     {"name": "Fidelity Funds - Latin America Fund W-Acc-GBP", "id": "LU1033664027:GBP"},
+    {"name": "Fid Fil UK HSBC Islamic 0 GBP", "id": "0P0001EWE2"},
 ]
 
 # --- Date Settings ---

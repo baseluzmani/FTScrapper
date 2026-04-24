@@ -47,21 +47,82 @@ def load_instruments():
 
 
 def load_portfolio():
-    """Load portfolio from JSON. Returns list of {fund_id, units}."""
+    """Load holdings from portfolio.json. Returns list of {fund_id, units}."""
     if not os.path.exists(PORTFOLIO_PATH):
         return []
     try:
         with open(PORTFOLIO_PATH) as f:
-            return json.load(f)
+            data = json.load(f)
+        # Support both old flat list and new {holdings, cash} structure
+        if isinstance(data, list):
+            return data
+        return data.get('holdings', [])
     except Exception:
         return []
 
 
 def save_portfolio(portfolio):
-    """Save portfolio list to JSON."""
+    """Save holdings back to portfolio.json, preserving cash key."""
     os.makedirs('data', exist_ok=True)
+    # Read existing to preserve cash accounts
+    existing = {}
+    if os.path.exists(PORTFOLIO_PATH):
+        try:
+            with open(PORTFOLIO_PATH) as f:
+                existing = json.load(f)
+            if isinstance(existing, list):
+                existing = {'holdings': existing, 'cash': []}
+        except Exception:
+            existing = {}
+    existing['holdings'] = portfolio
     with open(PORTFOLIO_PATH, 'w') as f:
-        json.dump(portfolio, f, indent=2)
+        json.dump(existing, f, indent=2)
+
+
+def load_cash_accounts():
+    """Load cash accounts from portfolio.json cash key."""
+    if not os.path.exists(PORTFOLIO_PATH):
+        return []
+    try:
+        with open(PORTFOLIO_PATH) as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return []
+        return data.get('cash', [])
+    except Exception:
+        return []
+
+
+def save_cash_accounts(accounts):
+    """Save cash accounts to portfolio.json cash key, preserving holdings."""
+    os.makedirs('data', exist_ok=True)
+    existing = {}
+    if os.path.exists(PORTFOLIO_PATH):
+        try:
+            with open(PORTFOLIO_PATH) as f:
+                existing = json.load(f)
+            if isinstance(existing, list):
+                existing = {'holdings': existing, 'cash': []}
+        except Exception:
+            existing = {}
+    existing['cash'] = accounts
+    with open(PORTFOLIO_PATH, 'w') as f:
+        json.dump(existing, f, indent=2)
+
+
+def calc_cash_total_gbp(accounts, fx_rates):
+    """Convert all cash accounts to GBP and return total."""
+    total = 0.0
+    for acc in accounts:
+        amount = float(acc.get('amount', 0))
+        curr   = acc.get('currency', 'GBP')
+        if curr == 'GBP':
+            total += amount
+        elif curr == 'USD':
+            total += amount / fx_rates.get('USD', 1.26)
+        elif curr == 'TRY':
+            total += amount / fx_rates.get('TRY', 43.0)
+    return total
 
 
 def get_fx_rates(df):
@@ -273,14 +334,12 @@ def heatmap_color(val, vmin, vmax):
     if val == 0:
         return 'rgb(255,255,255)'
     if val > 0:
-        # Green intensity — cap at 3% for full green
         intensity = min(abs(val) / 3.0, 1.0)
         r = int(255 - intensity * 180)
         g = 255
         b = int(255 - intensity * 180)
         return f'rgb({r},{g},{b})'
     else:
-        # Red intensity — cap at 3% for full red
         intensity = min(abs(val) / 3.0, 1.0)
         r = 255
         g = int(255 - intensity * 180)
@@ -510,7 +569,79 @@ def build_relative_chart(df_combined, selected_funds, since_date):
 
 # ── 2. APP SETUP ───────────────────────────────────────────────
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+def get_snapshot_options():
+    import glob
+    files = sorted(glob.glob('data/snapshots/*.json'), reverse=True)
+    options = [{'label': 'None', 'value': 'none'}]
+    for f in files:
+        date_str = os.path.basename(f).replace('.json', '')
+        try:
+            dt = pd.Timestamp(date_str)
+            label = dt.strftime('%d %b %Y')
+            options.append({'label': label, 'value': date_str})
+        except Exception:
+            pass
+    return options
+
+
+def get_latest_snapshot_value():
+    """Return the most recent snapshot date string, or 'none' if none exist."""
+    import glob
+    files = sorted(glob.glob('data/snapshots/*.json'), reverse=True)
+    for f in files:
+        date_str = os.path.basename(f).replace('.json', '')
+        try:
+            pd.Timestamp(date_str)
+            return date_str
+        except Exception:
+            pass
+    return 'none'
+
+
+app = dash.Dash(
+    __name__,
+    suppress_callback_exceptions=True,
+    meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}]
+)
+
+app.index_string = (
+    '<!DOCTYPE html>'
+    '<html>'
+    '<head>'
+    '{%metas%}'
+    '<title>Fund Dashboard</title>'
+    '{%favicon%}'
+    '{%css%}'
+    '<style>'
+    '@media (max-width: 768px) {'
+    '  #portfolio-table-div, #portfolio-category-div {'
+    '    width: 100% !important;'
+    '    margin-left: 0 !important;'
+    '    flex-shrink: 1 !important;'
+    '  }'
+    '  #holdings-relative-chart, #relative-chart {'
+    '    display: none !important;'
+    '  }'
+    '  .sum-fund { width: 40% !important; max-width: 40% !important; }'
+    '  .sum-num  { width: 1% !important; white-space: nowrap !important; }'
+    '  .portfolio-cat-panel { width: 100% !important; margin-left: 0 !important; }'
+    '}'
+    '@media (min-width: 769px) {'
+    '  .sum-fund { width: 1% !important; white-space: nowrap !important; }'
+    '  .sum-num  { width: 1% !important; white-space: nowrap !important; }'
+    '}'
+    '</style>'
+    '</head>'
+    '<body>'
+    '{%app_entry%}'
+    '<footer>'
+    '{%config%}'
+    '{%scripts%}'
+    '{%renderer%}'
+    '</footer>'
+    '</body>'
+    '</html>'
+)
 
 df           = load_data()
 df_composite = build_composite_data(df)
@@ -538,26 +669,19 @@ max_date     = df['date'].max().date()
 min_date     = df['date'].min().date()
 top4_default = get_top4_funds(df_combined, DEFAULT_DATE)
 
-# Top 4 from portfolio.json
 _portfolio_ids        = [h['fund_id'] for h in load_portfolio()]
 top4_holdings_default = get_top4_by_ytd(df_combined, _portfolio_ids)
 
-# Portfolio fund options — all funds in instruments table
-# Exclude: GBP/USD/ratio FX pairs and non-TRY points (indices)
-# Include: everything that can be converted to GBP value
+
 def _include_in_portfolio(fund_id, inst):
     unit = inst.get('price_unit', '')
     curr = inst.get('currency', '')
-    # Always include fixed-price instruments
     if fund_id.startswith(('CASH:', 'ASSET:')):
         return True
-    # Exclude pure FX ratios
     if unit == 'ratio':
         return False
-    # Include TRY points (Turkish stocks) — we can convert via GBPTRY
     if unit == 'point' and curr == 'TRY':
         return True
-    # Exclude other points (indices like FTSE, S&P)
     if unit == 'point':
         return False
     return True
@@ -643,6 +767,8 @@ app.layout = html.Div([
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
             dcc.Tab(label='P&L',             value='tab-pnl',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
+            dcc.Tab(label='Summary',         value='tab-summary',
+                    style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
         ],
         style={'backgroundColor': '#fff', 'borderBottom': '1px solid #eee', 'marginBottom': '0'}
     ),
@@ -671,10 +797,11 @@ app.layout = html.Div([
             ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
         ], style=CARD),
 
+        # FIX: flex row with minWidth:0 on table side so it shrinks properly
         html.Div([
             html.Div([
                 html.Div(id='holdings-table-div'),
-            ], style={'flex': '2', 'minWidth': '0', 'overflow': 'hidden'}),
+            ], style={'flex': '1', 'minWidth': '0', 'overflow': 'hidden'}),
 
             html.Div([
                 html.Div([
@@ -683,18 +810,19 @@ app.layout = html.Div([
                 ], style={'marginBottom': '8px'}),
                 dcc.Graph(id='holdings-relative-chart', config={'displayModeBar': False}),
             ], style={
-                'flex': '1', 'minWidth': '260px', 'backgroundColor': '#fff',
+                'flexShrink': '0', 'width': '320px',
+                'backgroundColor': '#fff',
                 'borderRadius': '8px', 'padding': '14px 18px',
                 'boxShadow': '0 1px 4px rgba(0,0,0,0.08)',
                 'marginBottom': '12px', 'marginLeft': '12px',
             }),
-        ], style={'display': 'flex', 'alignItems': 'flex-start'}),
+        ], style={'display': 'flex', 'alignItems': 'flex-start', 'width': '100%', 'minWidth': '0'}),
 
         dcc.Store(id='holdings-selected-funds', data=top4_holdings_default),
 
     ], id='holdings-tab-content', style={
         'display': 'block', 'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px', 'margin': '0 auto',
+        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
     }),
 
     # ── MARKET TAB
@@ -721,10 +849,11 @@ app.layout = html.Div([
             ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
         ], style=CARD),
 
+        # FIX: flex row with minWidth:0 on table side so it shrinks properly
         html.Div([
             html.Div([
                 html.Div(id='market-table-div'),
-            ], style={'flex': '2', 'minWidth': '0', 'overflow': 'hidden'}),
+            ], style={'flex': '1', 'minWidth': '0', 'overflow': 'hidden'}),
 
             html.Div([
                 html.Div([
@@ -733,23 +862,24 @@ app.layout = html.Div([
                 ], style={'marginBottom': '8px'}),
                 dcc.Graph(id='relative-chart', config={'displayModeBar': False}),
             ], style={
-                'flex': '1', 'minWidth': '260px', 'backgroundColor': '#fff',
+                'flexShrink': '0', 'width': '320px',
+                'backgroundColor': '#fff',
                 'borderRadius': '8px', 'padding': '14px 18px',
                 'boxShadow': '0 1px 4px rgba(0,0,0,0.08)',
                 'marginBottom': '12px', 'marginLeft': '12px',
             }),
-        ], style={'display': 'flex', 'alignItems': 'flex-start'}),
+        ], style={'display': 'flex', 'alignItems': 'flex-start', 'width': '100%', 'minWidth': '0'}),
 
         dcc.Store(id='market-selected-funds', data=top4_default),
 
     ], id='market-tab-content', style={
         'display': 'none', 'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px', 'margin': '0 auto',
+        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
     }),
 
     # ── PORTFOLIO TAB
     html.Div([
-        # Header
+        # Header card
         html.Div([
             html.Div([
                 html.P("PORTFOLIO", style={**SECTION_TITLE, 'marginBottom': '0'}),
@@ -758,18 +888,33 @@ app.layout = html.Div([
                     'color': '#1a3a5c', 'letterSpacing': '0.02em',
                 }),
             ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
+            html.Div([
+                html.Label("Compare with:", style={
+                    'fontSize': '11px', 'color': '#666',
+                    'marginRight': '8px', 'alignSelf': 'center',
+                }),
+                dcc.Dropdown(
+                    id='snapshot-select',
+                    options=get_snapshot_options(),
+                    value=get_latest_snapshot_value(),
+                    clearable=False,
+                    style={'fontSize': '12px', 'width': '160px'},
+                ),
+            ], style={'display': 'flex', 'alignItems': 'center', 'marginTop': '10px'}),
         ], style=CARD),
 
-        # Side-by-side: main table (left) + category breakdown (right)
+        # Side-by-side on desktop, stacked on mobile via CSS
         html.Div([
             html.Div(id='portfolio-table-div', style={
-                'flex': '3', 'minWidth': '0',
+                'flex': '1', 'minWidth': '0', 'overflowX': 'auto',
             }),
-            html.Div(id='portfolio-category-div', style={
-                'flex': '1', 'minWidth': '220px',
-                'marginLeft': '12px',
+            html.Div(id='portfolio-category-div', className='portfolio-cat-panel', style={
+                'flexShrink': '0', 'width': '360px', 'marginLeft': '12px',
             }),
-        ], style={'display': 'flex', 'alignItems': 'flex-start'}),
+        ], style={
+            'display': 'flex', 'alignItems': 'flex-start',
+            'width': '100%', 'flexWrap': 'wrap',
+        }),
 
         # Add / Edit section
         html.Div([
@@ -825,9 +970,105 @@ app.layout = html.Div([
             }),
         ], style=CARD),
 
+        # CASH ACCOUNTS section
+        html.Div([
+            html.P("CASH ACCOUNTS", style=SECTION_TITLE),
+            html.Div(id='cash-accounts-table-div'),
+            html.Div([
+                html.Div([
+                    html.Label("Account:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='cash-name-input', type='text', placeholder='e.g. Barclays',
+                              style={'padding': '7px', 'fontSize': '12px', 'border': '1px solid #ccc',
+                                     'borderRadius': '4px', 'width': '130px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Currency:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='cash-currency-select',
+                                 options=[
+                                     {'label': 'GBP', 'value': 'GBP'},
+                                     {'label': 'USD', 'value': 'USD'},
+                                     {'label': 'TRY', 'value': 'TRY'},
+                                 ],
+                                 value='GBP', clearable=False,
+                                 style={'fontSize': '12px', 'width': '90px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Amount:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='cash-amount-input', type='number', placeholder='e.g. 45000',
+                              step=0.01,
+                              style={'padding': '7px', 'fontSize': '12px', 'border': '1px solid #ccc',
+                                     'borderRadius': '4px', 'width': '130px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label(" ", style={'fontSize': '11px', 'display': 'block', 'marginBottom': '4px'}),
+                    html.Button("Add", id='cash-add-btn', n_clicks=0, style={
+                        'backgroundColor': '#1a7a1a', 'color': 'white', 'border': 'none',
+                        'borderRadius': '4px', 'padding': '7px 16px', 'fontSize': '12px', 'cursor': 'pointer',
+                    }),
+                ]),
+            ], style={'display': 'flex', 'alignItems': 'flex-end', 'marginTop': '12px', 'flexWrap': 'wrap', 'gap': '4px'}),
+            html.Div(id='cash-status', style={'fontSize': '12px', 'color': '#2E75B6', 'marginTop': '8px', 'fontWeight': '600'}),
+        ], style=CARD),
+
+        # ADD TRANSACTION section
+        html.Div([
+            html.P("ADD TRANSACTION", style=SECTION_TITLE),
+            html.Div([
+                html.Div([
+                    html.Label("Fund:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='txn-fund-select', options=portfolio_options,
+                                 placeholder='Select fund...', style={'fontSize': '12px'}),
+                ], style={'flex': '3', 'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Account:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='txn-account-input', type='text', placeholder='e.g. AB ISA',
+                              style={'padding': '7px', 'fontSize': '12px', 'border': '1px solid #ccc',
+                                     'borderRadius': '4px', 'width': '120px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Date:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.DatePickerSingle(id='txn-date-input', date=datetime.today().date(),
+                                         display_format='DD MMM YYYY'),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Type:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='txn-type-select', options=[
+                        {'label': 'BUY', 'value': 'BUY'},
+                        {'label': 'SELL', 'value': 'SELL'},
+                    ], value='BUY', clearable=False, style={'fontSize': '12px', 'width': '90px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Quantity:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='txn-qty-input', type='number', placeholder='e.g. 100',
+                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
+                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '100px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("Price:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='txn-price-input', type='number', placeholder='e.g. 248.3',
+                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
+                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '100px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label("FX Rate:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='txn-fx-input', type='number', placeholder='1.0', value=1.0,
+                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
+                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '80px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label(" ", style={'fontSize': '11px', 'display': 'block', 'marginBottom': '4px'}),
+                    html.Button("Add", id='txn-add-btn', n_clicks=0, style={
+                        'backgroundColor': '#1a7a1a', 'color': 'white', 'border': 'none',
+                        'borderRadius': '4px', 'padding': '7px 16px', 'fontSize': '12px', 'cursor': 'pointer',
+                    }),
+                ]),
+            ], style={'display': 'flex', 'alignItems': 'flex-end', 'flexWrap': 'wrap', 'gap': '4px'}),
+            html.Div(id='txn-status', style={'fontSize': '12px', 'color': '#2E75B6', 'marginTop': '8px', 'fontWeight': '600'}),
+        ], style=CARD),
+
     ], id='portfolio-tab-content', style={
         'display': 'none', 'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px', 'margin': '0 auto',
+        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
     }),
 
     # ── P&L TAB
@@ -860,68 +1101,35 @@ app.layout = html.Div([
         ]),
         dcc.Store(id='pnl-show-closed', data=False),
 
-        # P&L table
-        html.Div(id='pnl-table-div'),
-
-        # Add transaction form
-        html.Div([
-            html.P("ADD TRANSACTION", style=SECTION_TITLE),
-            html.Div([
-                html.Div([
-                    html.Label("Fund:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
-                    dcc.Dropdown(id='pnl-fund-select', options=portfolio_options,
-                                 placeholder='Select fund...', style={'fontSize': '12px'}),
-                ], style={'flex': '3', 'marginRight': '12px'}),
-                html.Div([
-                    html.Label("Account:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
-                    dcc.Input(id='pnl-account-input', type='text', placeholder='e.g. AB ISA',
-                              style={'padding': '7px', 'fontSize': '12px', 'border': '1px solid #ccc',
-                                     'borderRadius': '4px', 'width': '120px'}),
-                ], style={'marginRight': '12px'}),
-                html.Div([
-                    html.Label("Date:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
-                    dcc.DatePickerSingle(id='pnl-date-input', date=datetime.today().date(),
-                                         display_format='DD MMM YYYY'),
-                ], style={'marginRight': '12px'}),
-                html.Div([
-                    html.Label("Type:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
-                    dcc.Dropdown(id='pnl-type-select', options=[
-                        {'label': 'BUY', 'value': 'BUY'},
-                        {'label': 'SELL', 'value': 'SELL'},
-                    ], value='BUY', clearable=False, style={'fontSize': '12px', 'width': '90px'}),
-                ], style={'marginRight': '12px'}),
-                html.Div([
-                    html.Label("Quantity:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
-                    dcc.Input(id='pnl-qty-input', type='number', placeholder='e.g. 100',
-                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
-                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '100px'}),
-                ], style={'marginRight': '12px'}),
-                html.Div([
-                    html.Label("Price:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
-                    dcc.Input(id='pnl-price-input', type='number', placeholder='e.g. 248.3',
-                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
-                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '100px'}),
-                ], style={'marginRight': '12px'}),
-                html.Div([
-                    html.Label("FX Rate:", style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
-                    dcc.Input(id='pnl-fx-input', type='number', placeholder='1.0', value=1.0,
-                              step=0.0001, style={'padding': '7px', 'fontSize': '12px',
-                              'border': '1px solid #ccc', 'borderRadius': '4px', 'width': '80px'}),
-                ], style={'marginRight': '12px'}),
-                html.Div([
-                    html.Label(" ", style={'fontSize': '11px', 'display': 'block', 'marginBottom': '4px'}),
-                    html.Button("Add", id='pnl-add-btn', n_clicks=0, style={
-                        'backgroundColor': '#1a7a1a', 'color': 'white', 'border': 'none',
-                        'borderRadius': '4px', 'padding': '7px 16px', 'fontSize': '12px', 'cursor': 'pointer',
-                    }),
-                ]),
-            ], style={'display': 'flex', 'alignItems': 'flex-end', 'flexWrap': 'wrap', 'gap': '4px'}),
-            html.Div(id='pnl-status', style={'fontSize': '12px', 'color': '#2E75B6', 'marginTop': '8px', 'fontWeight': '600'}),
-        ], style=CARD),
+        # FIX: P&L table wrapped in horizontally scrollable container
+        html.Div(id='pnl-table-div', style={'overflowX': 'auto', 'width': '100%'}),
 
     ], id='pnl-tab-content', style={
         'display': 'none', 'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px', 'margin': '0 auto',
+        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
+    }),
+
+    # ── SUMMARY TAB
+    html.Div([
+        html.Div([
+            html.Label("Compare with:", style={
+                'fontSize': '11px', 'color': '#666',
+                'marginRight': '8px', 'alignSelf': 'center',
+            }),
+            dcc.Dropdown(
+                id='summary-snapshot-select',
+                options=get_snapshot_options(),
+                value=get_latest_snapshot_value(),
+                clearable=False,
+                style={'fontSize': '12px', 'width': '160px'},
+            ),
+        ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '12px'}),
+
+        html.Div(id='summary-table-div'),
+
+    ], id='summary-tab-content', style={
+        'display': 'none', 'padding': '12px 16px 16px 16px',
+        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
     }),
 
     # Shared stores
@@ -937,6 +1145,7 @@ app.layout = html.Div([
     'fontFamily': '"DM Sans", -apple-system, BlinkMacSystemFont, sans-serif',
     'backgroundColor': '#f0f3f7',
     'minHeight': '100vh',
+    'overflowX': 'hidden',   # FIX: prevent root from ever scrolling horizontally
 })
 
 
@@ -947,6 +1156,7 @@ app.layout = html.Div([
     Output('market-tab-content',    'style'),
     Output('portfolio-tab-content', 'style'),
     Output('pnl-tab-content',       'style'),
+    Output('summary-tab-content',   'style'),
     Output('data-date-label',       'children'),
     Input('main-tabs',         'value'),
     Input('db-reload-trigger', 'data'),
@@ -965,19 +1175,27 @@ def switch_tab(tab, reload_trigger, n_intervals):
         instruments  = load_instruments()
 
     date_label = f"Data as of {df['date'].max().strftime('%d %b %Y')}"
-    base = {'padding': '12px 16px 16px 16px', 'maxWidth': '1400px', 'margin': '0 auto'}
+
+    base = {
+        'padding': '12px 16px 16px 16px',
+        'maxWidth': '1400px',
+        'margin': '0 auto',
+        'overflowX': 'hidden',
+    }
     show = {**base, 'display': 'block'}
     hide = {**base, 'display': 'none'}
 
     if tab == 'tab-holdings':
-        return show, hide, hide, hide, date_label
+        return show, hide, hide, hide, hide, date_label
     elif tab == 'tab-market':
-        return hide, show, hide, hide, date_label
+        return hide, show, hide, hide, hide, date_label
     elif tab == 'tab-portfolio':
-        return hide, hide, show, hide, date_label
+        return hide, hide, show, hide, hide, date_label
     elif tab == 'tab-pnl':
-        return hide, hide, hide, show, date_label
-    return show, hide, hide, hide, date_label
+        return hide, hide, hide, show, hide, date_label
+    elif tab == 'tab-summary':
+        return hide, hide, hide, hide, show, date_label
+    return show, hide, hide, hide, hide, date_label
 
 
 # ── 6. HOLDINGS CALLBACKS ──────────────────────────────────────
@@ -1024,10 +1242,8 @@ def update_holdings(since_date, n_clicks, selected_funds, sort_state):
             sort_state['col'] = clicked_col
             sort_state['asc'] = False
 
-    # Read holdings from portfolio.json — single source of truth
     portfolio     = load_portfolio()
     holding_ids   = [h['fund_id'] for h in portfolio]
-    # Use instrument names for display
     all_names     = {fid: instruments.get(fid, {}).get('name', fid) for fid in holding_ids}
 
     holdings_df = df_combined[df_combined['fund_id'].isin(holding_ids)].copy()
@@ -1048,9 +1264,13 @@ def update_holdings(since_date, n_clicks, selected_funds, sort_state):
             html.P(cat.upper(), style={
                 **SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px',
             }),
-            render_returns_table(
-                group, since_label, sort_state,
-                header_type='holdings', selected_funds=selected_funds, clickable=True,
+            # FIX: each section table scrolls horizontally within its card
+            html.Div(
+                render_returns_table(
+                    group, since_label, sort_state,
+                    header_type='holdings', selected_funds=selected_funds, clickable=True,
+                ),
+                style={'overflowX': 'auto'}
             ),
         ], style=CARD))
 
@@ -1121,9 +1341,14 @@ def update_market_table(since_date, n_clicks, selected_funds, sort_state):
         table_df = table_df.sort_values(sort_col, ascending=sort_asc, na_position='last')
 
     since_label = pd.Timestamp(since_date).strftime('%d %b %y')
-    return render_returns_table(
-        table_df, since_label, sort_state,
-        header_type='market', selected_funds=selected_funds, clickable=True,
+
+    # FIX: wrap market table in scrollable div
+    return html.Div(
+        render_returns_table(
+            table_df, since_label, sort_state,
+            header_type='market', selected_funds=selected_funds, clickable=True,
+        ),
+        style={'overflowX': 'auto'}
     ), sort_state
 
 
@@ -1149,11 +1374,30 @@ def update_market_chart(selected_funds, since_date):
     Output('portfolio-category-div', 'children'),
     Input('portfolio-reload',        'data'),
     Input('main-tabs',               'value'),
+    Input('snapshot-select',         'value'),
 )
-def update_portfolio(reload, tab):
-    portfolio  = load_portfolio()
-    gbpusd     = get_gbpusd(df)
-    fx_rates   = get_fx_rates(df)
+def update_portfolio(reload, tab, snapshot_date):
+    portfolio      = load_portfolio()
+    cash_accounts  = load_cash_accounts()
+    gbpusd         = get_gbpusd(df)
+    fx_rates       = get_fx_rates(df)
+
+    # Filter out any legacy CASH: entries — replaced by cash_accounts
+    portfolio = [p for p in portfolio if not p['fund_id'].startswith('CASH:')]
+
+    # Load snapshot for comparison
+    snap_holdings  = {}
+    snap_label     = None
+    snap_data      = {}
+    snap_cash_total = None
+    if snapshot_date and snapshot_date != 'none':
+        snap_path = f'data/snapshots/{snapshot_date}.json'
+        if os.path.exists(snap_path):
+            with open(snap_path) as f:
+                snap_data = json.load(f)
+            snap_holdings   = snap_data.get('holdings', {})
+            snap_cash_total = snap_data.get('cash_total', None)
+            snap_label      = pd.Timestamp(snapshot_date).strftime('%d %b %Y')
 
     if not portfolio:
         return html.P(
@@ -1161,12 +1405,22 @@ def update_portfolio(reload, tab):
             style={'color': '#999', 'fontSize': '12px', 'padding': '12px'}
         ), "£0.00", html.Div()
 
-    header = html.Tr([
-        html.Th(c, style={
+    snap_cols = ([f'{snap_label}', 'Chg', 'Chg %'] if snap_label else [])
+    all_cols  = ['Fund', 'Category', 'CCY', 'Units', 'Price', 'Value', '%'] + snap_cols
+
+    def th_style(i):
+        base = {
             'backgroundColor': '#1a3a5c', 'color': 'white',
-            'padding': '6px 12px', 'fontSize': '11px', 'fontWeight': '600',
-            'textAlign': 'left' if i == 0 else 'center', 'whiteSpace': 'nowrap',
-        }) for i, c in enumerate(['Fund', 'Category', 'Type', 'Currency', 'Units', 'Price', 'Value (£)', '% of Portfolio'])
+            'padding': '6px 8px', 'fontSize': '11px', 'fontWeight': '600',
+            'whiteSpace': 'nowrap', 'width': '1%',
+        }
+        if i == 0:
+            return {**base, 'textAlign': 'left'}
+        else:
+            return {**base, 'textAlign': 'right'}
+
+    header = html.Tr([
+        html.Th(c, style=th_style(i)) for i, c in enumerate(all_cols)
     ])
 
     rows_data = []
@@ -1179,7 +1433,7 @@ def update_portfolio(reload, tab):
         cat   = inst.get('category', '—')
         curr  = inst.get('currency', '?')
         punit = inst.get('price_unit', '?')
-        # Fixed-price instruments (cash, house) use 1.0 as price
+
         if fid.startswith('CASH:') or fid.startswith('ASSET:'):
             price = 1.0
             effective_unit = punit
@@ -1188,7 +1442,6 @@ def update_portfolio(reload, tab):
             gbp   = to_gbp(price, effective_unit, curr, gbpusd, fx_rates)
             value = gbp * units if gbp is not None else None
 
-        # Composite funds — weighted average of underlying real fund prices
         elif fid.startswith('COMPOSITE:'):
             comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', []) if c['fund_id'] == fid), None)
             if comp_def:
@@ -1207,17 +1460,35 @@ def update_portfolio(reload, tab):
                 gbp   = None
                 value = None
 
-        # Regular funds/ETFs/stocks
         else:
             price = get_latest_price(df_combined, fid)
             effective_unit = punit
             gbp   = to_gbp(price, effective_unit, curr, gbpusd, fx_rates) if price else None
             value = gbp * units if gbp is not None else None
+
         rows_data.append({
             'fund_id': fid, 'name': name, 'type': atype, 'category': cat,
             'currency': curr, 'units': units,
             'price': price, 'gbp_price': gbp, 'value': value,
         })
+
+    # Add aggregated cash row from portfolio.json cash key
+    if cash_accounts:
+        cash_total_gbp = calc_cash_total_gbp(cash_accounts, fx_rates)
+        rows_data.append({
+            'fund_id': 'CASH:TOTAL',
+            'name': 'Cash',
+            'type': 'Cash',
+            'category': 'Cash',
+            'currency': 'GBP',
+            'units': cash_total_gbp,
+            'price': None,
+            'gbp_price': 1.0,
+            'value': cash_total_gbp,
+        })
+        # Inject snap cash total so comparison works
+        if snap_cash_total is not None:
+            snap_holdings['CASH:TOTAL'] = snap_cash_total
 
     total = sum(r['value'] for r in rows_data if r['value'] is not None)
 
@@ -1227,27 +1498,26 @@ def update_portfolio(reload, tab):
         name  = r['name']
         ndisp = name if len(name) <= 35 else name[:35] + '…'
 
-        # Units: no trailing zeros, no decimals if whole number
         units = r['units']
         if r['fund_id'].startswith(('CASH:', 'ASSET:')):
             units_str = f"{units:,.0f}"
         elif units == int(units):
             units_str = f"{int(units):,}"
         else:
-            # Strip trailing zeros from 4dp
             units_str = f"{units:,.4f}".rstrip('0').rstrip('.')
 
-        # Price: convert pence to pounds for GBP pence instruments, show 1dp
         price = r['price']
         fid   = r['fund_id']
         punit = instruments.get(fid, {}).get('price_unit', '')
         curr  = instruments.get(fid, {}).get('currency', '')
-        if r['fund_id'].startswith(('CASH:', 'ASSET:')):
+        if r['fund_id'] == 'CASH:TOTAL':
+            price_str = 'Mixed'
+            units_str = f"{r['value']:,.0f}"
+        elif r['fund_id'].startswith(('CASH:', 'ASSET:')):
             price_str = 'Fixed'
         elif price is None:
             price_str = 'N/A'
         elif r['fund_id'].startswith('COMPOSITE:'):
-            # Composite price is already in GBP pounds (weighted average)
             price_str = f"{price:.2f}"
         elif punit == 'pence' and curr == 'GBP':
             price_str = f"{price / 100:.1f}"
@@ -1256,69 +1526,134 @@ def update_portfolio(reload, tab):
 
         rows.append(html.Tr([
             html.Td(html.Span(ndisp, title=name), style={
-                'padding': '5px 12px', 'fontSize': '12px',
+                'padding': '5px 8px', 'fontSize': '12px',
                 'color': '#1a3a5c', 'whiteSpace': 'nowrap',
+                'width': '1%',
             }),
             html.Td(r['category'], style={
-                'padding': '5px 12px', 'fontSize': '11px',
-                'textAlign': 'center', 'color': '#444', 'fontWeight': '500',
-            }),
-            html.Td(r['type'], style={
-                'padding': '5px 12px', 'fontSize': '11px',
-                'textAlign': 'center', 'color': '#666',
+                'padding': '5px 8px', 'fontSize': '10px',
+                'textAlign': 'left', 'color': '#444', 'fontWeight': '500',
+                'whiteSpace': 'nowrap', 'width': '1%',
             }),
             html.Td(r['currency'], style={
-                'padding': '5px 12px', 'fontSize': '11px',
-                'textAlign': 'center', 'color': '#666',
+                'padding': '5px 8px', 'fontSize': '11px',
+                'textAlign': 'right', 'color': '#666', 'width': '1%',
+                'whiteSpace': 'nowrap',
             }),
             html.Td(units_str, style={
-                'padding': '5px 12px', 'fontSize': '12px',
-                'textAlign': 'right', 'fontFamily': 'monospace',
+                'padding': '5px 8px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace', 'width': '1%',
+                'whiteSpace': 'nowrap',
             }),
             html.Td(price_str, style={
-                'padding': '5px 12px', 'fontSize': '12px',
-                'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#555',
+                'padding': '5px 8px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap',
             }),
             html.Td(
-                f"£{r['value']:,.0f}" if r['value'] else 'N/A',
+                f"{r['value']:,.0f}" if r['value'] else 'N/A',
                 style={
-                    'padding': '5px 12px', 'fontSize': '12px',
+                    'padding': '5px 8px', 'fontSize': '11px',
                     'textAlign': 'right', 'fontFamily': 'monospace',
                     'fontWeight': '600', 'color': '#1a3a5c',
+                    'width': '1%', 'whiteSpace': 'nowrap',
                 }
             ),
             html.Td(
                 f"{pct:.1f}%" if pct else 'N/A',
                 style={
-                    'padding': '5px 12px', 'fontSize': '12px',
-                    'textAlign': 'center', 'fontFamily': 'monospace', 'color': '#555',
+                    'padding': '5px 8px', 'fontSize': '11px',
+                    'textAlign': 'right', 'fontFamily': 'monospace',
+                    'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap',
                 }
             ),
-        ], style={'borderBottom': '1px solid #f0f3f7'}))
+        ] + (
+            [
+                html.Td(
+                    f"{snap_holdings.get(fid, 0):,.0f}" if snap_holdings.get(fid) else 'NEW',
+                    style={'padding': '5px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                           'fontFamily': 'monospace', 'color': '#555',
+                           'width': '1%', 'whiteSpace': 'nowrap'}
+                ),
+                html.Td(
+                    f"{r['value']:+,.0f}" if not snap_holdings.get(fid) and r['value']
+                    else (f"{(r['value'] - snap_holdings.get(fid, r['value'])):+,.0f}"
+                          if snap_holdings.get(fid) and r['value'] else '—'),
+                    style={
+                        'padding': '5px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                        'fontFamily': 'monospace', 'fontWeight': '600',
+                        'color': '#1a7a1a' if (
+                            r['value'] >= snap_holdings.get(fid, r['value'])
+                            if snap_holdings.get(fid) else True
+                        ) else '#c0392b',
+                        'width': '1%', 'whiteSpace': 'nowrap',
+                    }
+                ),
+                html.Td(
+                    'NEW' if not snap_holdings.get(fid)
+                    else (f"{((r['value'] / snap_holdings[fid] - 1) * 100):+.1f}%"
+                          if r['value'] and snap_holdings[fid] > 0 else '—'),
+                    style={
+                        'padding': '5px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                        'fontFamily': 'monospace', 'fontWeight': '600',
+                        'color': '#1a7a1a' if (
+                            r['value'] >= snap_holdings.get(fid, r['value'])
+                            if snap_holdings.get(fid) else True
+                        ) else '#c0392b',
+                        'width': '1%', 'whiteSpace': 'nowrap',
+                    }
+                ),
+            ] if snap_label else []
+        ), style={'borderBottom': '1px solid #f0f3f7'}))
 
     # Total row
+    snap_total   = sum(snap_holdings.values()) if snap_holdings else 0
+    snap_change  = total - snap_total if snap_total else None
+    snap_chg_pct = (snap_change / snap_total * 100) if snap_total else None
+    chg_color    = '#1a7a1a' if (snap_change or 0) >= 0 else '#c0392b'
+
     rows.append(html.Tr([
-        html.Td("TOTAL", colSpan=6, style={
-            'padding': '8px 12px', 'fontSize': '12px',
+        html.Td("TOTAL", colSpan=5, style={
+            'padding': '8px 8px', 'fontSize': '12px',
             'fontWeight': '700', 'color': '#1a3a5c',
             'borderTop': '2px solid #1a3a5c',
         }),
-        html.Td(f"£{total:,.2f}", style={
-            'padding': '8px 12px', 'fontSize': '13px',
+        html.Td(f"{total:,.0f}", style={
+            'padding': '8px 8px', 'fontSize': '12px',
             'textAlign': 'right', 'fontFamily': 'monospace',
             'fontWeight': '700', 'color': '#1a3a5c',
             'borderTop': '2px solid #1a3a5c',
         }),
         html.Td("100%", style={
-            'padding': '8px 12px', 'fontSize': '12px',
+            'padding': '8px 8px', 'fontSize': '11px',
             'textAlign': 'center', 'color': '#666',
             'borderTop': '2px solid #1a3a5c',
         }),
-    ]))
+    ] + ([
+        html.Td(f"{snap_total:,.0f}", style={
+            'padding': '8px 8px', 'fontSize': '11px', 'textAlign': 'right',
+            'fontFamily': 'monospace', 'fontWeight': '700', 'color': '#555',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td(f"{snap_change:+,.0f}" if snap_change is not None else '—', style={
+            'padding': '8px 8px', 'fontSize': '11px', 'textAlign': 'right',
+            'fontFamily': 'monospace', 'fontWeight': '700', 'color': chg_color,
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td(f"{snap_chg_pct:+.1f}%" if snap_chg_pct is not None else '—', style={
+            'padding': '8px 8px', 'fontSize': '11px', 'textAlign': 'right',
+            'fontFamily': 'monospace', 'fontWeight': '700', 'color': chg_color,
+            'borderTop': '2px solid #1a3a5c',
+        }),
+    ] if snap_label else [])))
 
-    table = html.Table(
-        [html.Thead(header), html.Tbody(rows)],
-        style={'width': '100%', 'borderCollapse': 'collapse'}
+    # FIX: table wrapped in scrollable div so it doesn't blow out the layout
+    table = html.Div(
+        html.Table(
+            [html.Thead(header), html.Tbody(rows)],
+            style={'width': '100%', 'borderCollapse': 'collapse', 'tableLayout': 'auto'}
+        ),
+        style={**CARD, 'overflowX': 'auto', 'padding': '0'}
     )
 
     # ── Category breakdown table
@@ -1328,60 +1663,98 @@ def update_portfolio(reload, tab):
         if r['value']:
             cat_totals[r['category']] += r['value']
 
-    cat_header = html.Tr([
-        html.Th(c, style={
+    snap_cat  = snap_data.get('categories', {}) if snap_label else {}
+    cat_cols  = ['Category', 'Value £k', '%'] + ([snap_label, 'Chg'] if snap_label else [])
+
+    def cat_th_style(i):
+        base = {
             'backgroundColor': '#1a3a5c', 'color': 'white',
-            'padding': '6px 10px', 'fontSize': '11px', 'fontWeight': '600',
-            'textAlign': 'left' if i == 0 else 'right', 'whiteSpace': 'nowrap',
-        }) for i, c in enumerate(['Category', 'Value (£)', '%'])
+            'padding': '5px 6px', 'fontSize': '10px', 'fontWeight': '600',
+            'whiteSpace': 'nowrap',
+        }
+        return {**base, 'textAlign': 'left' if i == 0 else 'right', 'width': '1%' if i > 0 else 'auto'}
+
+    cat_header = html.Tr([
+        html.Th(c, style=cat_th_style(i)) for i, c in enumerate(cat_cols)
     ])
 
     cat_rows = []
     for cat, val in sorted(cat_totals.items(), key=lambda x: x[1], reverse=True):
         pct = val / total * 100 if total else 0
+        snap_cat_val = snap_cat.get(cat, 0) if snap_cat else 0
+        cat_chg      = val - snap_cat_val if snap_cat_val else None
+        cat_chg_color= '#1a7a1a' if (cat_chg or 0) >= 0 else '#c0392b'
         cat_rows.append(html.Tr([
             html.Td(cat, style={
-                'padding': '5px 10px', 'fontSize': '12px',
-                'color': '#1a3a5c', 'fontWeight': '500',
+                'padding': '4px 6px', 'fontSize': '11px',
+                'color': '#1a3a5c', 'fontWeight': '500', 'whiteSpace': 'nowrap',
             }),
-            html.Td(f"£{val:,.0f}", style={
-                'padding': '5px 10px', 'fontSize': '12px',
-                'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '600',
+            html.Td(f"{val/1000:.1f}", style={
+                'padding': '4px 6px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'fontWeight': '600', 'width': '1%', 'whiteSpace': 'nowrap',
             }),
             html.Td(f"{pct:.1f}%", style={
-                'padding': '5px 10px', 'fontSize': '12px',
-                'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#555',
+                'padding': '4px 6px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap',
             }),
-        ], style={'borderBottom': '1px solid #f0f3f7'}))
+        ] + ([
+            html.Td(f"{snap_cat_val/1000:.1f}" if snap_cat_val else '—', style={
+                'padding': '4px 6px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap',
+            }),
+            html.Td(f"{cat_chg/1000:+.1f}" if cat_chg is not None else '—', style={
+                'padding': '4px 6px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'fontWeight': '600', 'color': cat_chg_color,
+                'width': '1%', 'whiteSpace': 'nowrap',
+            }),
+        ] if snap_label else []), style={'borderBottom': '1px solid #f0f3f7'}))
 
+    snap_cat_total = sum(snap_cat.values()) if snap_cat else 0
+    cat_chg_total  = total - snap_cat_total if snap_cat_total else None
+    cat_chg_color  = '#1a7a1a' if (cat_chg_total or 0) >= 0 else '#c0392b'
     cat_rows.append(html.Tr([
         html.Td("TOTAL", style={
-            'padding': '7px 10px', 'fontSize': '12px',
+            'padding': '6px 6px', 'fontSize': '11px',
             'fontWeight': '700', 'color': '#1a3a5c',
             'borderTop': '2px solid #1a3a5c',
         }),
-        html.Td(f"£{total:,.0f}", style={
-            'padding': '7px 10px', 'fontSize': '12px',
+        html.Td(f"{total/1000:.1f}", style={
+            'padding': '6px 6px', 'fontSize': '11px',
             'textAlign': 'right', 'fontFamily': 'monospace',
             'fontWeight': '700', 'color': '#1a3a5c',
-            'borderTop': '2px solid #1a3a5c',
+            'borderTop': '2px solid #1a3a5c', 'width': '1%', 'whiteSpace': 'nowrap',
         }),
         html.Td("100%", style={
-            'padding': '7px 10px', 'fontSize': '12px',
+            'padding': '6px 6px', 'fontSize': '11px',
             'textAlign': 'right', 'color': '#666',
-            'borderTop': '2px solid #1a3a5c',
+            'borderTop': '2px solid #1a3a5c', 'width': '1%', 'whiteSpace': 'nowrap',
         }),
-    ]))
+    ] + ([
+        html.Td(f"{snap_cat_total/1000:.1f}" if snap_cat_total else '—', style={
+            'padding': '6px 6px', 'fontSize': '11px', 'textAlign': 'right',
+            'fontFamily': 'monospace', 'fontWeight': '700', 'color': '#555',
+            'borderTop': '2px solid #1a3a5c', 'width': '1%', 'whiteSpace': 'nowrap',
+        }),
+        html.Td(f"{cat_chg_total/1000:+.1f}" if cat_chg_total is not None else '—', style={
+            'padding': '6px 6px', 'fontSize': '11px', 'textAlign': 'right',
+            'fontFamily': 'monospace', 'fontWeight': '700', 'color': cat_chg_color,
+            'borderTop': '2px solid #1a3a5c', 'width': '1%', 'whiteSpace': 'nowrap',
+        }),
+    ] if snap_label else [])))
 
     cat_table = html.Div([
-        html.P("BY CATEGORY", style={**SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px'}),
+        html.P("BY CATEGORY  (£k)", style={**SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px'}),
         html.Table(
             [html.Thead(cat_header), html.Tbody(cat_rows)],
-            style={'width': '100%', 'borderCollapse': 'collapse'}
+            style={'width': '100%', 'borderCollapse': 'collapse', 'tableLayout': 'auto'}
         ),
     ], style=CARD)
 
-    return html.Div(table, style=CARD), f"£{total:,.2f}", cat_table
+    return table, f"{total:,.0f}", cat_table
 
 
 @app.callback(
@@ -1406,7 +1779,6 @@ def update_portfolio_entry(save_clicks, remove_clicks, fund_id, units, reload):
     if triggered == 'portfolio-save-btn':
         if units is None or units <= 0:
             return 'Please enter a valid number of units.', reload, units
-        # Update or add
         existing = next((i for i, x in enumerate(portfolio) if x['fund_id'] == fund_id), None)
         if existing is not None:
             portfolio[existing]['units'] = float(units)
@@ -1431,14 +1803,11 @@ def update_portfolio_entry(save_clicks, remove_clicks, fund_id, units, reload):
 # ── 9. P&L CALLBACKS ──────────────────────────────────────────
 
 def txn_price_to_gbp(price, txn_currency, txn_fx_rate, price_unit="pound"):
-    """Convert a transaction price to GBP pounds.
-    Uses price_unit from instruments table to handle pence conversion.
-    """
+    """Convert a transaction price to GBP pounds."""
     p  = float(price)
     fx = float(txn_fx_rate) if txn_fx_rate else 1.0
     c  = str(txn_currency or "GBP").strip().upper()
 
-    # Convert pence to pounds for GBP instruments
     if price_unit == "pence" and c == "GBP":
         p = p / 100
 
@@ -1475,16 +1844,15 @@ def calc_pnl(gbpusd, fx_rates):
         punit    = inst.get("price_unit", "pound")
         curr     = inst.get("currency", "GBP")
 
-        total_qty       = 0.0
-        total_cost_gbp  = 0.0
-        realised_pnl    = 0.0   # accumulated P&L from closed positions
+        total_qty      = 0.0
+        total_cost_gbp = 0.0
+        realised_pnl   = 0.0
 
         for _, r in group.iterrows():
             qty   = float(r["quantity"])
             price = float(r["price"])
             ttype = r["type"]
 
-            # Use transaction currency/fx + instrument price_unit to convert to GBP
             cost_per_unit = txn_price_to_gbp(price, r["currency"], r["fx_rate"], punit)
             cost_gbp      = qty * cost_per_unit
 
@@ -1496,7 +1864,6 @@ def calc_pnl(gbpusd, fx_rates):
                 if total_qty > 0:
                     avg_cost = total_cost_gbp / total_qty
                     sell_qty = min(qty, total_qty)
-                    # Realised P&L = sell proceeds - avg cost basis
                     realised_pnl   += sell_qty * (cost_per_unit - avg_cost)
                     total_cost_gbp -= sell_qty * avg_cost
                     total_qty      -= sell_qty
@@ -1504,7 +1871,6 @@ def calc_pnl(gbpusd, fx_rates):
 
         avg_cost_gbp = total_cost_gbp / total_qty if total_qty > 0 else 0
 
-        # Current market value of open position
         if total_qty > 0:
             if fund_id.startswith("COMPOSITE:"):
                 comp_def = next((c for c in getattr(config, "COMPOSITE_FUNDS", []) if c["fund_id"] == fund_id), None)
@@ -1524,21 +1890,19 @@ def calc_pnl(gbpusd, fx_rates):
                 cp = get_latest_price(df_combined, fund_id)
                 current_price_gbp = to_gbp(cp, punit, curr, gbpusd, fx_rates)
 
-            current_value    = current_price_gbp * total_qty if current_price_gbp else None
-            unrealised_pnl   = (current_value - total_cost_gbp) if current_value is not None else None
+            current_value  = current_price_gbp * total_qty if current_price_gbp else None
+            unrealised_pnl = (current_value - total_cost_gbp) if current_value is not None else None
         else:
             current_value  = None
             unrealised_pnl = None
 
-        # Total P&L = realised + unrealised
         if unrealised_pnl is not None:
             total_pnl = realised_pnl + unrealised_pnl
         elif realised_pnl != 0:
             total_pnl = realised_pnl
         else:
-            continue  # fully closed with no P&L data, skip
+            continue
 
-        total_cost_all = total_cost_gbp + (realised_pnl if realised_pnl < 0 else 0)
         pnl_pct = (total_pnl / (total_cost_gbp + abs(realised_pnl)) * 100) if (total_cost_gbp + abs(realised_pnl)) > 0 else None
 
         results.append({
@@ -1581,7 +1945,7 @@ def toggle_closed(n_clicks, show_closed):
     Output("pnl-table-div",   "children"),
     Output("pnl-total-label", "children"),
     Input("main-tabs",        "value"),
-    Input("pnl-status",       "children"),
+    Input("txn-status",       "children"),
     Input("pnl-show-closed",  "data"),
 )
 def update_pnl(tab, _, show_closed):
@@ -1603,21 +1967,19 @@ def update_pnl(tab, _, show_closed):
     total_pnl_pct = (total_pnl / (total_cost + pnl_df["Realised"].abs().sum()) * 100) if total_cost else 0
     pnl_color     = "#1a7a1a" if total_pnl >= 0 else "#c0392b"
 
-    total_label = ""  # removed from header — shown in TOTAL row
+    total_label = ""
 
     header = html.Tr([
         html.Th(c, style={
             "backgroundColor": "#1a3a5c", "color": "white",
             "padding": "6px 10px", "fontSize": "11px", "fontWeight": "600",
             "textAlign": "left" if i == 0 else "right", "whiteSpace": "nowrap",
-        }) for i, c in enumerate(["Fund", "Category", "Price", "Avg Cost", "Qty", "Current Value", "P&L", "P&L %", "1D £", "1D %", "1W %", "1M %"])
+        }) for i, c in enumerate(["Fund", "Category", "Price", "Avg Cost", "Qty", "Value", "P&L", "P&L %", "1D", "1D %", "1W %", "1M %"])
     ])
 
-    # Split open and closed
     open_df   = pnl_df[pnl_df["Qty"] > 0]
     closed_df = pnl_df[pnl_df["Qty"] == 0]
 
-    # Compute return ranges for heatmap colouring
     def get_returns_for_df(df_subset):
         ret_1d, ret_1w, ret_1m = [], [], []
         for fid in df_subset["fund_id"]:
@@ -1636,14 +1998,12 @@ def update_pnl(tab, _, show_closed):
     range_1d, range_1w, range_1m = get_returns_for_df(pnl_df)
 
     def fmt_num(value, symbol="", suffix=""):
-        "Format number: 2dp if <100, 0dp if >=100."
         if value < 100:
             return f"{symbol}{value:,.2f}{suffix}"
         else:
             return f"{symbol}{value:,.0f}{suffix}"
 
     def format_native_price(price, fund_id):
-        "Format price in its native currency without GBP conversion."
         if price is None:
             return "—"
         inst  = instruments.get(fund_id, {})
@@ -1667,14 +2027,10 @@ def update_pnl(tab, _, show_closed):
             name    = r["Fund"]
             ndisp   = name if len(name) <= 35 else name[:35] + "…"
             fid     = r["fund_id"]
-            qty_str = f"{r['Qty']:,.4f}".rstrip("0").rstrip(".")
 
-            # Current price in native currency (for display only)
             cp        = get_latest_price(df_combined, fid)
             price_str = format_native_price(cp, fid) if cp else "—"
 
-            # Avg cost — convert back to native currency for display
-            # avg_cost is stored in GBP pounds, convert back
             inst    = instruments.get(fid, {})
             punit   = inst.get("price_unit", "pound")
             curr    = inst.get("currency", "GBP")
@@ -1702,7 +2058,7 @@ def update_pnl(tab, _, show_closed):
                     qty_display = f"{q:,.0f}"
             else:
                 qty_display = "—"
-            val_display = f"£{r['Current Value']:,.0f}" if r["Current Value"] else ("Closed" if r["Qty"] == 0 else "N/A")
+            val_display = f"{r['Current Value']:,.0f}" if r["Current Value"] else ("Closed" if r["Qty"] == 0 else "N/A")
             row_bg      = "#fafafa" if is_closed else "transparent"
 
             result.append(html.Tr([
@@ -1728,7 +2084,7 @@ def update_pnl(tab, _, show_closed):
                            "fontFamily": "monospace", "fontWeight": "600", "color": "#1a3a5c"}
                 ),
                 html.Td(
-                    f"£{pnl:+,.0f}" if pnl is not None else "N/A",
+                    f"{pnl:+,.0f}" if pnl is not None else "N/A",
                     style={"padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
                            "fontFamily": "monospace", "fontWeight": "700", "color": color}
                 ),
@@ -1737,10 +2093,8 @@ def update_pnl(tab, _, show_closed):
                     style={"padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
                            "fontFamily": "monospace", "fontWeight": "600", "color": color}
                 ),
-            ] + [
-                # 1D £ — daily P&L in GBP
                 html.Td(
-                    f"£{r['Current Value'] * calc_return(df_combined, fid, days_back=1) / 100:+,.0f}"
+                    f"{r['Current Value'] * calc_return(df_combined, fid, days_back=1) / 100:+,.0f}"
                     if r["Current Value"] and calc_return(df_combined, fid, days_back=1) is not None
                     else "—",
                     style={
@@ -1764,20 +2118,17 @@ def update_pnl(tab, _, show_closed):
                     (calc_return(df_combined, fid, days_back=5),  range_1w),
                     (calc_return(df_combined, fid, days_back=21), range_1m),
                 ]
-            ] + [
             ], style={"borderBottom": "1px solid #f0f3f7", "backgroundColor": row_bg}))
         return result
 
     rows = make_rows(open_df)
 
-    # Closed positions — always show aggregated summary row
     if not closed_df.empty:
         closed_pnl   = closed_df["PnL"].dropna().sum()
         closed_count = len(closed_df)
         c_color      = "#1a7a1a" if closed_pnl >= 0 else "#c0392b"
 
         if show_closed:
-            # Header row for closed section
             rows.append(html.Tr([
                 html.Td(f"CLOSED POSITIONS ({closed_count})", colSpan=8, style={
                     "padding": "6px 10px", "fontSize": "11px", "fontWeight": "700",
@@ -1787,14 +2138,13 @@ def update_pnl(tab, _, show_closed):
             ]))
             rows.extend(make_rows(closed_df, is_closed=True))
         else:
-            # Single aggregated row for closed positions
             rows.append(html.Tr([
                 html.Td(f"Closed positions ({closed_count} instruments)", colSpan=5, style={
                     "padding": "5px 10px", "fontSize": "12px", "color": "#888",
                     "fontStyle": "italic",
                 }),
                 html.Td("Closed", style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb", "fontSize": "12px"}),
-                html.Td(f"£{closed_pnl:+,.0f}", style={
+                html.Td(f"{closed_pnl:+,.0f}", style={
                     "padding": "5px 10px", "fontSize": "12px", "textAlign": "right",
                     "fontFamily": "monospace", "fontWeight": "700", "color": c_color,
                 }),
@@ -1804,7 +2154,6 @@ def update_pnl(tab, _, show_closed):
                 html.Td("—", style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb"}),
             ], style={"borderBottom": "1px solid #f0f3f7", "backgroundColor": "#fafafa"}))
 
-    # Calculate total 1D £
     total_1d_gbp = sum(
         r["Current Value"] * calc_return(df_combined, r["fund_id"], days_back=1) / 100
         for _, r in open_df.iterrows()
@@ -1817,11 +2166,11 @@ def update_pnl(tab, _, show_closed):
             "padding": "7px 10px", "fontSize": "12px", "fontWeight": "700",
             "color": "#1a3a5c", "borderTop": "2px solid #1a3a5c",
         }),
-        html.Td(f"£{total_value:,.0f}", style={
+        html.Td(f"{total_value:,.0f}", style={
             "padding": "7px 10px", "fontSize": "12px", "textAlign": "right",
             "fontFamily": "monospace", "fontWeight": "700", "borderTop": "2px solid #1a3a5c",
         }),
-        html.Td(f"£{total_pnl:+,.0f}", style={
+        html.Td(f"{total_pnl:+,.0f}", style={
             "padding": "7px 10px", "fontSize": "12px", "textAlign": "right",
             "fontFamily": "monospace", "fontWeight": "700", "color": pnl_color,
             "borderTop": "2px solid #1a3a5c",
@@ -1831,7 +2180,7 @@ def update_pnl(tab, _, show_closed):
             "fontFamily": "monospace", "fontWeight": "700", "color": pnl_color,
             "borderTop": "2px solid #1a3a5c",
         }),
-        html.Td(f"£{total_1d_gbp:+,.0f}", style={
+        html.Td(f"{total_1d_gbp:+,.0f}", style={
             "padding": "7px 10px", "fontSize": "12px", "textAlign": "right",
             "fontFamily": "monospace", "fontWeight": "700", "color": d1_color,
             "borderTop": "2px solid #1a3a5c",
@@ -1839,28 +2188,73 @@ def update_pnl(tab, _, show_closed):
         html.Td("", colSpan=3, style={"borderTop": "2px solid #1a3a5c"}),
     ]))
 
-    table = html.Table(
-        [html.Thead(header), html.Tbody(rows)],
-        style={"width": "100%", "borderCollapse": "collapse"}
+    # FIX: P&L table wrapped in scrollable card
+    table = html.Div(
+        html.Table(
+            [html.Thead(header), html.Tbody(rows)],
+            style={"width": "100%", "borderCollapse": "collapse"}
+        ),
+        style={**CARD, 'overflowX': 'auto', 'padding': '0'}
     )
-    return html.Div(table, style=CARD), total_label
+    return table, total_label
+
+
+def recalc_portfolio_from_transactions(fund_id):
+    """Recalculate units for a fund from transaction history and update portfolio.json.
+    Only updates the specific fund_id — all other holdings are untouched.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    txns = conn.execute(
+        "SELECT type, quantity FROM transactions WHERE fund_id = ? ORDER BY trade_date",
+        (fund_id,)
+    ).fetchall()
+    conn.close()
+
+    total_qty = 0.0
+    for ttype, qty in txns:
+        if ttype == "BUY":
+            total_qty += float(qty)
+        elif ttype == "SELL":
+            total_qty -= float(qty)
+    total_qty = max(total_qty, 0.0)
+
+    # Update portfolio.json — only touch this fund_id
+    portfolio = load_portfolio()
+    existing = next((i for i, x in enumerate(portfolio) if x['fund_id'] == fund_id), None)
+    if total_qty > 0:
+        if existing is not None:
+            portfolio[existing]['units'] = total_qty
+        else:
+            portfolio.append({'fund_id': fund_id, 'units': total_qty})
+    else:
+        # All sold — remove from portfolio
+        if existing is not None:
+            portfolio.pop(existing)
+    save_portfolio(portfolio)
+    return total_qty
 
 
 @app.callback(
-    Output("pnl-status", "children"),
-    Input("pnl-add-btn", "n_clicks"),
-    State("pnl-fund-select",   "value"),
-    State("pnl-account-input", "value"),
-    State("pnl-date-input",    "date"),
-    State("pnl-type-select",   "value"),
-    State("pnl-qty-input",     "value"),
-    State("pnl-price-input",   "value"),
-    State("pnl-fx-input",      "value"),
+    Output("txn-status", "children"),
+    Output("portfolio-reload", "data", allow_duplicate=True),
+    Output("txn-qty-input", "value"),
+    Output("txn-price-input", "value"),
+    Input("txn-add-btn", "n_clicks"),
+    State("txn-fund-select",   "value"),
+    State("txn-account-input", "value"),
+    State("txn-date-input",    "date"),
+    State("txn-type-select",   "value"),
+    State("txn-qty-input",     "value"),
+    State("txn-price-input",   "value"),
+    State("txn-fx-input",      "value"),
+    State("portfolio-reload",  "data"),
     prevent_initial_call=True,
 )
-def add_transaction(n_clicks, fund_id, account, trade_date, ttype, qty, price, fx_rate):
+def add_transaction(n_clicks, fund_id, account, trade_date, ttype, qty, price, fx_rate, reload):
     if not all([fund_id, trade_date, ttype, qty, price]):
-        return "Please fill in all required fields."
+        return "Please fill in all required fields.", reload, qty, price
+
+    # Save transaction to database
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         "INSERT INTO transactions (fund_id, account, trade_date, type, quantity, price, currency, fx_rate) VALUES (?,?,?,?,?,?,?,?)",
@@ -1869,10 +2263,333 @@ def add_transaction(n_clicks, fund_id, account, trade_date, ttype, qty, price, f
     )
     conn.commit()
     conn.close()
-    return f"✓ Added {ttype} {qty} × {instruments.get(fund_id, {}).get('name', fund_id)} @ {price} on {trade_date}"
+
+    # Recalculate and sync portfolio.json from all transactions for this fund
+    new_units = recalc_portfolio_from_transactions(fund_id)
+    name = instruments.get(fund_id, {}).get('name', fund_id)
+    msg = f"✓ {ttype} {qty} × {name} @ {price} on {trade_date} — Portfolio updated to {new_units:,.4f} units"
+
+    return msg, reload + 1, None, None
 
 
-# ── 10. RUN ─────────────────────────────────────────────────────
+@app.callback(
+    Output("pnl-status", "children"),
+    Input("pnl-add-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def pnl_status_placeholder(n_clicks):
+    return ""
+
+
+# ── 10. CASH ACCOUNTS CALLBACKS ───────────────────────────────
+
+def render_cash_table(accounts, fx_rates):
+    """Render the cash accounts table with totals."""
+    if not accounts:
+        return html.P("No cash accounts yet. Add one below.",
+                      style={'color': '#999', 'fontSize': '12px', 'marginBottom': '8px'})
+
+    header = html.Tr([
+        html.Th(c, style={
+            'backgroundColor': '#1a3a5c', 'color': 'white',
+            'padding': '5px 8px', 'fontSize': '11px', 'fontWeight': '600',
+            'textAlign': 'left' if i == 0 else 'right', 'whiteSpace': 'nowrap',
+        }) for i, c in enumerate(['Account', 'CCY', 'Amount', 'GBP Value', ''])
+    ])
+
+    rows = []
+    total_gbp = 0.0
+    for idx, acc in enumerate(accounts):
+        amount    = float(acc.get('amount', 0))
+        curr      = acc.get('currency', 'GBP')
+        sym       = {'GBP': '£', 'USD': '$', 'TRY': '₺'}.get(curr, '')
+        if curr == 'GBP':
+            gbp_val = amount
+        elif curr == 'USD':
+            gbp_val = amount / fx_rates.get('USD', 1.26)
+        elif curr == 'TRY':
+            gbp_val = amount / fx_rates.get('TRY', 43.0)
+        else:
+            gbp_val = amount
+        total_gbp += gbp_val
+
+        rows.append(html.Tr([
+            html.Td(acc.get('name', ''), style={
+                'padding': '4px 8px', 'fontSize': '12px', 'color': '#1a3a5c',
+            }),
+            html.Td(curr, style={
+                'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right', 'color': '#666',
+            }),
+            html.Td(f"{sym}{amount:,.0f}", style={
+                'padding': '4px 8px', 'fontSize': '12px', 'textAlign': 'right',
+                'fontFamily': 'monospace',
+            }),
+            html.Td(f"{gbp_val:,.0f}", style={
+                'padding': '4px 8px', 'fontSize': '12px', 'textAlign': 'right',
+                'fontFamily': 'monospace', 'fontWeight': '600', 'color': '#1a3a5c',
+            }),
+            html.Td(
+                html.Button("✕", id={'type': 'cash-remove-btn', 'index': idx},
+                            n_clicks=0, style={
+                                'backgroundColor': 'transparent', 'color': '#c0392b',
+                                'border': 'none', 'cursor': 'pointer', 'fontSize': '12px',
+                                'padding': '2px 6px',
+                            }),
+                style={'padding': '4px 4px', 'textAlign': 'center'},
+            ),
+        ], style={'borderBottom': '1px solid #f0f3f7'}))
+
+    # Total row
+    rows.append(html.Tr([
+        html.Td("TOTAL", colSpan=3, style={
+            'padding': '6px 8px', 'fontSize': '12px', 'fontWeight': '700',
+            'color': '#1a3a5c', 'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td(f"{total_gbp:,.0f}", style={
+            'padding': '6px 8px', 'fontSize': '12px', 'textAlign': 'right',
+            'fontFamily': 'monospace', 'fontWeight': '700', 'color': '#1a3a5c',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td("", style={'borderTop': '2px solid #1a3a5c'}),
+    ]))
+
+    return html.Table(
+        [html.Thead(header), html.Tbody(rows)],
+        style={'width': '100%', 'borderCollapse': 'collapse'}
+    )
+
+
+
+@app.callback(
+    Output('cash-accounts-table-div', 'children'),
+    Output('cash-status', 'children'),
+    Output('cash-name-input', 'value'),
+    Output('cash-amount-input', 'value'),
+    Input('main-tabs', 'value'),
+    Input('portfolio-reload', 'data'),
+    Input('cash-add-btn', 'n_clicks'),
+    Input({'type': 'cash-remove-btn', 'index': ALL}, 'n_clicks'),
+    State('cash-name-input', 'value'),
+    State('cash-currency-select', 'value'),
+    State('cash-amount-input', 'value'),
+    prevent_initial_call=False,
+)
+def manage_cash_accounts(tab, reload, add_clicks, remove_clicks, name, currency, amount):
+    fx_rates  = get_fx_rates(df)
+    accounts  = load_cash_accounts()
+    triggered = ctx.triggered_id
+
+    if triggered == 'cash-add-btn':
+        if name and amount:
+            accounts.append({'name': name, 'currency': currency or 'GBP', 'amount': float(amount)})
+            save_cash_accounts(accounts)
+            return render_cash_table(accounts, fx_rates), f"✓ Added {name}", None, None
+        return render_cash_table(accounts, fx_rates), 'Please enter name and amount.', name, amount
+
+    if isinstance(triggered, dict) and triggered.get('type') == 'cash-remove-btn':
+        idx = triggered['index']
+        if 0 <= idx < len(accounts):
+            removed = accounts.pop(idx)
+            save_cash_accounts(accounts)
+            return render_cash_table(accounts, fx_rates), f"✓ Removed {removed['name']}", name, amount
+
+    return render_cash_table(accounts, fx_rates), '', name, amount
+
+
+# ── 11. SUMMARY CALLBACKS ─────────────────────────────────────
+
+@app.callback(
+    Output('summary-table-div', 'children'),
+    Input('main-tabs',                'value'),
+    Input('summary-snapshot-select',  'value'),
+    Input('portfolio-reload',         'data'),
+)
+def update_summary(tab, snapshot_date, reload):
+    portfolio  = load_portfolio()
+    gbpusd     = get_gbpusd(df)
+    fx_rates   = get_fx_rates(df)
+
+    # Load snapshot for comparison
+    snap_holdings = {}
+    snap_label    = None
+    if snapshot_date and snapshot_date != 'none':
+        snap_path = f'data/snapshots/{snapshot_date}.json'
+        if os.path.exists(snap_path):
+            with open(snap_path) as f:
+                snap_data = json.load(f)
+            snap_holdings = snap_data.get('holdings', {})
+            snap_label    = pd.Timestamp(snapshot_date).strftime('%d %b %Y')
+
+    cash_accounts = load_cash_accounts()
+    # Filter out legacy CASH: entries
+    portfolio = [p for p in portfolio if not p['fund_id'].startswith('CASH:')]
+
+    if not portfolio and not cash_accounts:
+        return html.P("No holdings found.", style={'color': '#999', 'fontSize': '14px'})
+
+    # Build rows data — same logic as portfolio tab
+    rows_data = []
+    for item in portfolio:
+        fid   = item['fund_id']
+        units = item.get('units', 0)
+        inst  = instruments.get(fid, {})
+        name  = inst.get('name', fid)
+        curr  = inst.get('currency', '?')
+        punit = inst.get('price_unit', '?')
+
+        if fid.startswith('CASH:') or fid.startswith('ASSET:'):
+            price = 1.0
+            effective_unit = punit
+            if fid == 'CASH:TRY':
+                effective_unit = 'point'
+            gbp   = to_gbp(price, effective_unit, curr, gbpusd, fx_rates)
+            value = gbp * units if gbp is not None else None
+        elif fid.startswith('COMPOSITE:'):
+            comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', []) if c['fund_id'] == fid), None)
+            if comp_def:
+                weighted_gbp = 0.0
+                for c in comp_def['components']:
+                    c_price = get_latest_price(df_combined, c['fund_id'])
+                    c_inst  = instruments.get(c['fund_id'], {})
+                    c_gbp   = to_gbp(c_price, c_inst.get('price_unit','pence'), c_inst.get('currency','GBP'), gbpusd, fx_rates)
+                    if c_gbp is not None:
+                        weighted_gbp += c_gbp * c['weight']
+                gbp   = weighted_gbp if weighted_gbp > 0 else None
+                value = gbp * units if gbp is not None else None
+            else:
+                value = None
+        else:
+            price = get_latest_price(df_combined, fid)
+            gbp   = to_gbp(price, punit, curr, gbpusd, fx_rates) if price else None
+            value = gbp * units if gbp is not None else None
+
+        rows_data.append({'fund_id': fid, 'name': name, 'value': value})
+
+    # Add aggregated cash row
+    if cash_accounts:
+        fx_rates_s     = get_fx_rates(df)
+        cash_total_gbp = calc_cash_total_gbp(cash_accounts, fx_rates_s)
+        rows_data.append({'fund_id': 'CASH:TOTAL', 'name': 'Cash', 'value': cash_total_gbp})
+
+    total = sum(r['value'] for r in rows_data if r['value'] is not None)
+
+    # Table header — no snapshot value column, just variance
+    chg_cols = (['Chg k', 'Chg %'] if snap_label else [])
+    all_cols  = ['Fund', 'Value k', '%'] + chg_cols
+
+    def sum_th(i, label):
+        base_style = {
+            'backgroundColor': '#1a3a5c', 'color': 'white',
+            'padding': '8px 8px', 'fontSize': '12px', 'fontWeight': '600',
+            'whiteSpace': 'nowrap',
+            'textAlign': 'left' if i == 0 else 'right',
+        }
+        cls = 'sum-fund' if i == 0 else 'sum-num'
+        return html.Th(label, style=base_style, className=cls)
+
+    header = html.Tr([sum_th(i, c) for i, c in enumerate(all_cols)])
+
+    # Build rows sorted by value descending
+    rows = []
+    for r in sorted(rows_data, key=lambda x: x['value'] or 0, reverse=True):
+        fid   = r['fund_id']
+        value = r['value']
+        pct   = (value / total * 100) if total and value else None
+        name  = r['name']
+        ndisp = name if len(name) <= 25 else name[:25] + '…'
+
+        snap_val  = snap_holdings.get(fid)
+        chg_gbp   = (value - snap_val) if snap_val and value else None
+        chg_pct   = ((value / snap_val - 1) * 100) if snap_val and value and snap_val > 0 else None
+        chg_color = '#1a7a1a' if (chg_gbp or 0) >= 0 else '#c0392b'
+
+        cells = [
+            html.Td(html.Span(ndisp, title=name), className='sum-fund', style={
+                'padding': '7px 8px', 'fontSize': '13px',
+                'color': '#1a3a5c', 'overflow': 'hidden',
+                'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap',
+            }),
+            html.Td(f"{value/1000:.1f}" if value else 'N/A', className='sum-num', style={
+                'padding': '7px 8px', 'fontSize': '13px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'fontWeight': '600', 'whiteSpace': 'nowrap',
+            }),
+            html.Td(f"{pct:.1f}%" if pct else 'N/A', className='sum-num', style={
+                'padding': '7px 8px', 'fontSize': '12px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'color': '#555', 'whiteSpace': 'nowrap',
+            }),
+        ]
+
+        if snap_label:
+            cells += [
+                html.Td(f"{chg_gbp/1000:+.1f}" if chg_gbp is not None else '—', className='sum-num', style={
+                    'padding': '7px 8px', 'fontSize': '12px',
+                    'textAlign': 'right', 'fontFamily': 'monospace',
+                    'fontWeight': '600', 'color': chg_color,
+                    'whiteSpace': 'nowrap',
+                }),
+                html.Td(f"{chg_pct:+.1f}%" if chg_pct is not None else '—', className='sum-num', style={
+                    'padding': '7px 8px', 'fontSize': '12px',
+                    'textAlign': 'right', 'fontFamily': 'monospace',
+                    'fontWeight': '600', 'color': chg_color,
+                    'whiteSpace': 'nowrap',
+                }),
+            ]
+
+        rows.append(html.Tr(cells, style={'borderBottom': '1px solid #f0f3f7'}))
+
+    # Total row
+    snap_total  = sum(snap_holdings.values()) if snap_holdings else 0
+    chg_total   = (total - snap_total) if snap_total else None
+    chg_pct_tot = ((total / snap_total - 1) * 100) if snap_total and snap_total > 0 else None
+    tot_color   = '#1a7a1a' if (chg_total or 0) >= 0 else '#c0392b'
+
+    total_cells = [
+        html.Td("TOTAL", style={
+            'padding': '8px 8px', 'fontSize': '13px',
+            'fontWeight': '700', 'color': '#1a3a5c',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td(f"{total/1000:.1f}", style={
+            'padding': '8px 8px', 'fontSize': '13px',
+            'textAlign': 'right', 'fontFamily': 'monospace',
+            'fontWeight': '700', 'color': '#1a3a5c',
+            'borderTop': '2px solid #1a3a5c', 'whiteSpace': 'nowrap',
+        }),
+        html.Td("100%", style={
+            'padding': '8px 8px', 'fontSize': '12px',
+            'textAlign': 'right', 'color': '#666',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+    ]
+    if snap_label:
+        total_cells += [
+            html.Td(f"{chg_total/1000:+.1f}" if chg_total is not None else '—', style={
+                'padding': '8px 8px', 'fontSize': '12px', 'textAlign': 'right',
+                'fontFamily': 'monospace', 'fontWeight': '700', 'color': tot_color,
+                'borderTop': '2px solid #1a3a5c', 'whiteSpace': 'nowrap',
+            }),
+            html.Td(f"{chg_pct_tot:+.1f}%" if chg_pct_tot is not None else '—', style={
+                'padding': '8px 8px', 'fontSize': '12px', 'textAlign': 'right',
+                'fontFamily': 'monospace', 'fontWeight': '700', 'color': tot_color,
+                'borderTop': '2px solid #1a3a5c', 'whiteSpace': 'nowrap',
+            }),
+        ]
+    rows.append(html.Tr(total_cells))
+
+    table = html.Div(
+        html.Table(
+            [html.Thead(header), html.Tbody(rows)],
+            style={'width': '100%', 'borderCollapse': 'collapse', 'tableLayout': 'auto'}
+        ),
+        style={**CARD, 'overflowX': 'auto', 'padding': '0'}
+    )
+
+    return table
+
+
+# ── 11. RUN ─────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True)
