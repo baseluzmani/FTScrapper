@@ -69,14 +69,32 @@ HEADERS = {
 # Asset types: Index, ETF, Commodity, Stock
 
 YAHOO_TICKERS = [
-    # Indices
-    ("^GSPC", "S&P 500", "Index"),
-    ("^FTSE", "FTSE 100", "Index"),
-    ("^FTMC", "FTSE 250", "Index"),
-    ("XU030.IS", "BIST 30", "Index"),
-    ("^N225", "Nikkei 225", "Index"),
-    ("^STOXX50E", "Euro Stoxx 50", "Index"),
-    ("^IXIC", "NASDAQ Composite", "Index"),
+    # Indices — Global
+    ("^GSPC",     "S&P 500",              "Index"),
+    ("^RUT",      "Russell 2000",         "Index"),
+    ("^DJI",      "Dow Jones",            "Index"),
+    ("^IXIC",     "NASDAQ Composite",     "Index"),
+    ("^VIX",      "VIX Volatility",       "Index"),
+    ("^FTSE",     "FTSE 100",             "Index"),
+    ("^FTMC",     "FTSE 250",             "Index"),
+    ("^GDAXI",    "DAX",                  "Index"),
+    ("^FCHI",     "CAC 40",               "Index"),
+    ("^STOXX50E", "Euro Stoxx 50",        "Index"),
+    # Indices — Asia Pacific
+    ("^N225",     "Nikkei 225",           "Index"),
+    ("^HSI",      "Hang Seng",            "Index"),
+    ("^KS11",     "KOSPI",                "Index"),
+    ("^AXJO",     "S&P ASX 200",          "Index"),
+    ("^BSESN",    "BSE Sensex",           "Index"),
+    ("000001.SS", "Shanghai Composite",   "Index"),
+    ("^TWII",     "Taiwan Weighted",      "Index"),
+    ("^STI",      "Singapore STI",        "Index"),
+    ("^JKSE",     "Jakarta Composite",    "Index"),
+    ("^NZ50",     "NZX 50",               "Index"),
+    # Indices — Other
+    ("XU030.IS",  "BIST 30",              "Index"),
+    ("^BVSP",     "Ibovespa Brazil",      "Index"),
+    ("^GSPTSE",   "S&P TSX Canada",       "Index"),
     # Global Equity ETFs
     ("URTH", "MSCI World", "ETF"),
     ("EEM", "MSCI Emerging Markets", "ETF"),

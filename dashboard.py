@@ -80,34 +80,48 @@ def save_portfolio(portfolio):
 
 
 def load_cash_accounts():
-    """Load cash accounts from portfolio.json cash key."""
-    if not os.path.exists(PORTFOLIO_PATH):
-        return []
+    """Load cash accounts from SQLite database."""
     try:
-        with open(PORTFOLIO_PATH) as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            return []
-        return data.get('cash', [])
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute(
+            "SELECT id, name, currency, amount FROM cash_accounts ORDER BY id"
+        ).fetchall()
+        conn.close()
+        return [{'id': r[0], 'name': r[1], 'currency': r[2], 'amount': r[3]} for r in rows]
     except Exception:
         return []
 
 
 def save_cash_accounts(accounts):
-    """Save cash accounts to portfolio.json cash key, preserving holdings."""
-    os.makedirs('data', exist_ok=True)
-    existing = {}
-    if os.path.exists(PORTFOLIO_PATH):
-        try:
-            with open(PORTFOLIO_PATH) as f:
-                existing = json.load(f)
-            if isinstance(existing, list):
-                existing = {'holdings': existing, 'cash': []}
-        except Exception:
-            existing = {}
-    existing['cash'] = accounts
-    with open(PORTFOLIO_PATH, 'w') as f:
-        json.dump(existing, f, indent=2)
+    """Save cash accounts to SQLite — full replace of all rows."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("DELETE FROM cash_accounts")
+    for acc in accounts:
+        conn.execute(
+            "INSERT INTO cash_accounts (name, currency, amount) VALUES (?, ?, ?)",
+            (acc['name'], acc['currency'], float(acc['amount']))
+        )
+    conn.commit()
+    conn.close()
+
+
+def add_cash_account(name, currency, amount):
+    """Add a single cash account row — safe, no full replace."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO cash_accounts (name, currency, amount) VALUES (?, ?, ?)",
+        (name, currency, float(amount))
+    )
+    conn.commit()
+    conn.close()
+
+
+def remove_cash_account(row_id):
+    """Remove a single cash account by its database id."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("DELETE FROM cash_accounts WHERE id = ?", (row_id,))
+    conn.commit()
+    conn.close()
 
 
 def calc_cash_total_gbp(accounts, fx_rates):
@@ -1490,6 +1504,18 @@ def update_portfolio(reload, tab, snapshot_date):
         if snap_cash_total is not None:
             snap_holdings['CASH:TOTAL'] = snap_cash_total
 
+    # Add sold positions — in snapshot but not in current portfolio
+    current_ids = {r['fund_id'] for r in rows_data}
+    for fid, snap_val in snap_holdings.items():
+        if fid not in current_ids and fid != 'CASH:TOTAL':
+            inst = instruments.get(fid, {})
+            name = inst.get('name', fid)
+            rows_data.append({
+                'fund_id': fid, 'name': name, 'type': inst.get('asset_type', '—'),
+                'category': inst.get('category', '—'), 'currency': inst.get('currency', '?'),
+                'units': 0, 'price': None, 'gbp_price': None, 'value': 0,
+            })
+
     total = sum(r['value'] for r in rows_data if r['value'] is not None)
 
     rows = []
@@ -1576,30 +1602,30 @@ def update_portfolio(reload, tab, snapshot_date):
                            'width': '1%', 'whiteSpace': 'nowrap'}
                 ),
                 html.Td(
+                    # New position: show full value as positive
+                    # Sold position (value=0): show full snap value as negative
+                    # Existing: show difference
                     f"{r['value']:+,.0f}" if not snap_holdings.get(fid) and r['value']
-                    else (f"{(r['value'] - snap_holdings.get(fid, r['value'])):+,.0f}"
-                          if snap_holdings.get(fid) and r['value'] else '—'),
+                    else (f"{(r['value'] - snap_holdings[fid]):+,.0f}"
+                          if snap_holdings.get(fid) else '—'),
                     style={
                         'padding': '5px 8px', 'fontSize': '11px', 'textAlign': 'right',
                         'fontFamily': 'monospace', 'fontWeight': '600',
-                        'color': '#1a7a1a' if (
-                            r['value'] >= snap_holdings.get(fid, r['value'])
-                            if snap_holdings.get(fid) else True
-                        ) else '#c0392b',
+                        'color': '#1a7a1a' if (r['value'] or 0) >= (snap_holdings.get(fid) or 0)
+                                 else '#c0392b',
                         'width': '1%', 'whiteSpace': 'nowrap',
                     }
                 ),
                 html.Td(
                     'NEW' if not snap_holdings.get(fid)
-                    else (f"{((r['value'] / snap_holdings[fid] - 1) * 100):+.1f}%"
-                          if r['value'] and snap_holdings[fid] > 0 else '—'),
+                    else ('SOLD' if r['value'] == 0
+                          else f"{((r['value'] / snap_holdings[fid] - 1) * 100):+.1f}%"
+                               if snap_holdings[fid] > 0 else '—'),
                     style={
                         'padding': '5px 8px', 'fontSize': '11px', 'textAlign': 'right',
                         'fontFamily': 'monospace', 'fontWeight': '600',
-                        'color': '#1a7a1a' if (
-                            r['value'] >= snap_holdings.get(fid, r['value'])
-                            if snap_holdings.get(fid) else True
-                        ) else '#c0392b',
+                        'color': '#1a7a1a' if (r['value'] or 0) >= (snap_holdings.get(fid) or 0)
+                                 else '#c0392b',
                         'width': '1%', 'whiteSpace': 'nowrap',
                     }
                 ),
@@ -1662,6 +1688,9 @@ def update_portfolio(reload, tab, snapshot_date):
     for r in rows_data:
         if r['value']:
             cat_totals[r['category']] += r['value']
+        elif r.get('value') == 0 and snap_holdings.get(r['fund_id']):
+            # Sold position — include in category with 0 value so it shows up
+            cat_totals[r['category']] += 0
 
     snap_cat  = snap_data.get('categories', {}) if snap_label else {}
     cat_cols  = ['Category', 'Value £k', '%'] + ([snap_label, 'Chg'] if snap_label else [])
@@ -2329,7 +2358,7 @@ def render_cash_table(accounts, fx_rates):
                 'fontFamily': 'monospace', 'fontWeight': '600', 'color': '#1a3a5c',
             }),
             html.Td(
-                html.Button("✕", id={'type': 'cash-remove-btn', 'index': idx},
+                html.Button("✕", id={'type': 'cash-remove-btn', 'index': acc.get('id', idx)},
                             n_clicks=0, style={
                                 'backgroundColor': 'transparent', 'color': '#c0392b',
                                 'border': 'none', 'cursor': 'pointer', 'fontSize': '12px',
@@ -2381,17 +2410,16 @@ def manage_cash_accounts(tab, reload, add_clicks, remove_clicks, name, currency,
 
     if triggered == 'cash-add-btn':
         if name and amount:
-            accounts.append({'name': name, 'currency': currency or 'GBP', 'amount': float(amount)})
-            save_cash_accounts(accounts)
+            add_cash_account(name, currency or 'GBP', float(amount))
+            accounts = load_cash_accounts()
             return render_cash_table(accounts, fx_rates), f"✓ Added {name}", None, None
         return render_cash_table(accounts, fx_rates), 'Please enter name and amount.', name, amount
 
     if isinstance(triggered, dict) and triggered.get('type') == 'cash-remove-btn':
-        idx = triggered['index']
-        if 0 <= idx < len(accounts):
-            removed = accounts.pop(idx)
-            save_cash_accounts(accounts)
-            return render_cash_table(accounts, fx_rates), f"✓ Removed {removed['name']}", name, amount
+        row_id = triggered['index']
+        remove_cash_account(row_id)
+        accounts = load_cash_accounts()
+        return render_cash_table(accounts, fx_rates), f"✓ Removed account", name, amount
 
     return render_cash_table(accounts, fx_rates), '', name, amount
 
@@ -2470,6 +2498,13 @@ def update_summary(tab, snapshot_date, reload):
         fx_rates_s     = get_fx_rates(df)
         cash_total_gbp = calc_cash_total_gbp(cash_accounts, fx_rates_s)
         rows_data.append({'fund_id': 'CASH:TOTAL', 'name': 'Cash', 'value': cash_total_gbp})
+
+    # Add sold positions from snapshot
+    current_ids_s = {r['fund_id'] for r in rows_data}
+    for fid, snap_val in snap_holdings.items():
+        if fid not in current_ids_s and fid != 'CASH:TOTAL':
+            inst = instruments.get(fid, {})
+            rows_data.append({'fund_id': fid, 'name': inst.get('name', fid), 'value': 0})
 
     total = sum(r['value'] for r in rows_data if r['value'] is not None)
 

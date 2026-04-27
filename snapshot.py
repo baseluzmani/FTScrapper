@@ -112,25 +112,35 @@ def main():
     with open(PORTFOLIO_PATH) as f:
         data = json.load(f)
 
-    # Support both old flat list and new {holdings, cash} structure
+    # Support both old flat list and new {holdings} structure
     if isinstance(data, list):
-        holdings      = data
-        cash_accounts = []
+        holdings = data
     else:
-        holdings      = data.get('holdings', [])
-        cash_accounts = data.get('cash', [])
+        holdings = data.get('holdings', [])
+
+    # Load cash accounts from SQLite
+    try:
+        cash_conn = sqlite3.connect(DB_PATH)
+        rows = cash_conn.execute(
+            "SELECT name, currency, amount FROM cash_accounts ORDER BY id"
+        ).fetchall()
+        cash_conn.close()
+        cash_accounts = [{'name': r[0], 'currency': r[1], 'amount': r[2]} for r in rows]
+    except Exception:
+        cash_accounts = []
 
     conn   = get_connection()
     gbpusd = get_gbpusd(conn)
     gbptry = get_gbptry(conn)
 
     snapshot = {
-        'date':       datetime.today().strftime('%Y-%m-%d'),
-        'gbpusd':     gbpusd,
-        'gbptry':     gbptry,
-        'holdings':   {},
-        'categories': {},
-        'cash_total': 0.0,
+        'date':          datetime.today().strftime('%Y-%m-%d'),
+        'gbpusd':        gbpusd,
+        'gbptry':        gbptry,
+        'holdings':      {},
+        'categories':    {},
+        'cash_total':    0.0,
+        'cash_accounts': cash_accounts,  # full breakdown saved for reference
     }
 
     total = 0.0
@@ -177,12 +187,12 @@ def main():
             )
             total += value
 
-    # Process cash accounts — save as single total
+    # Process cash accounts — save total and full breakdown
     if cash_accounts:
         cash_total = calc_cash_total(cash_accounts, gbpusd, gbptry)
-        snapshot['cash_total']          = round(cash_total, 2)
+        snapshot['cash_total']             = round(cash_total, 2)
         snapshot['holdings']['CASH:TOTAL'] = round(cash_total, 2)
-        snapshot['categories']['Cash']  = round(
+        snapshot['categories']['Cash']     = round(
             snapshot['categories'].get('Cash', 0) + cash_total, 2
         )
         total += cash_total
@@ -201,6 +211,7 @@ def main():
     print(f"Total portfolio value: £{total:,.2f}")
     print(f"Holdings captured: {len(snapshot['holdings'])}")
     print(f"Cash total: £{snapshot['cash_total']:,.2f}")
+    print(f"Cash accounts captured: {len(cash_accounts)}")
 
 
 if __name__ == '__main__':
