@@ -1,16 +1,13 @@
 # snapshot.py
-# Saves current portfolio values to data/snapshots/YYYY-MM-DD.json
+# Saves current portfolio values to database tables
 # Run automatically via cron at 10pm daily, or manually anytime.
 # Usage: python3 snapshot.py
 
 import sqlite3
-import json
 import os
 from datetime import datetime
 
-DB_PATH        = 'data/funds.db'
-PORTFOLIO_PATH = 'data/portfolio.json'
-SNAPSHOTS_DIR  = 'data/snapshots'
+DB_PATH = 'data/funds.db'
 
 
 def get_connection():
@@ -74,7 +71,6 @@ def to_gbp(price, price_unit, currency, gbpusd, gbptry):
 
 
 def get_composite_price_gbp(conn, fund_id, gbpusd, gbptry):
-    """Calculate composite fund price in GBP."""
     import config
     comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', []) if c['fund_id'] == fund_id), None)
     if not comp_def:
@@ -89,73 +85,41 @@ def get_composite_price_gbp(conn, fund_id, gbpusd, gbptry):
     return weighted if weighted > 0 else None
 
 
-def calc_cash_total(cash_accounts, gbpusd, gbptry):
-    """Convert all cash accounts to GBP and return total."""
-    total = 0.0
-    for acc in cash_accounts:
-        amount = float(acc.get('amount', 0))
-        curr   = acc.get('currency', 'GBP')
-        if curr == 'GBP':
-            total += amount
-        elif curr == 'USD':
-            total += amount / gbpusd
-        elif curr == 'TRY':
-            total += amount / gbptry
-    return total
-
-
 def main():
-    if not os.path.exists(PORTFOLIO_PATH):
-        print("No portfolio.json found.")
-        return
+    conn      = get_connection()
+    gbpusd    = get_gbpusd(conn)
+    gbptry    = get_gbptry(conn)
+    snap_date = datetime.today().strftime('%Y-%m-%d')
+    now       = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+    total      = 0.0
+    categories = {}
 
-    with open(PORTFOLIO_PATH) as f:
-        data = json.load(f)
+    # Load holdings from portfolio_holdings table
+    holdings = conn.execute(
+        "SELECT fund_id, units FROM portfolio_holdings"
+    ).fetchall()
 
-    # Support both old flat list and new {holdings} structure
-    if isinstance(data, list):
-        holdings = data
-    else:
-        holdings = data.get('holdings', [])
+    # Insert or replace snapshot header
+    conn.execute(
+        "INSERT OR REPLACE INTO portfolio_snapshots (snap_date, gbpusd, gbptry, created_at) VALUES (?, ?, ?, ?)",
+        (snap_date, gbpusd, gbptry, now)
+    )
+    conn.commit()
 
-    # Load cash accounts from SQLite
-    try:
-        cash_conn = sqlite3.connect(DB_PATH)
-        rows = cash_conn.execute(
-            "SELECT name, currency, amount FROM cash_accounts ORDER BY id"
-        ).fetchall()
-        cash_conn.close()
-        cash_accounts = [{'name': r[0], 'currency': r[1], 'amount': r[2]} for r in rows]
-    except Exception:
-        cash_accounts = []
+    snap_id = conn.execute(
+        "SELECT id FROM portfolio_snapshots WHERE snap_date = ?", (snap_date,)
+    ).fetchone()[0]
 
-    conn   = get_connection()
-    gbpusd = get_gbpusd(conn)
-    gbptry = get_gbptry(conn)
+    # Clear existing detail rows for today
+    conn.execute("DELETE FROM snapshot_holdings   WHERE snapshot_id = ?", (snap_id,))
+    conn.execute("DELETE FROM snapshot_categories WHERE snapshot_id = ?", (snap_id,))
+    conn.execute("DELETE FROM snapshot_cash       WHERE snapshot_id = ?", (snap_id,))
+    conn.commit()
 
-    snapshot = {
-        'date':          datetime.today().strftime('%Y-%m-%d'),
-        'gbpusd':        gbpusd,
-        'gbptry':        gbptry,
-        'holdings':      {},
-        'categories':    {},
-        'cash_total':    0.0,
-        'cash_accounts': cash_accounts,  # full breakdown saved for reference
-    }
-
-    total = 0.0
-
-    # Process holdings — skip legacy CASH: entries (now handled separately)
-    for item in holdings:
-        fid   = item['fund_id']
-        units = float(item.get('units', 0))
-
-        if fid.startswith('CASH:'):
-            continue
-
-        row = conn.execute(
-            "SELECT category FROM instruments WHERE fund_id=?", (fid,)
-        ).fetchone()
+    # Process each holding
+    for fid, units in holdings:
+        units = float(units)
+        row = conn.execute("SELECT category FROM instruments WHERE fund_id=?", (fid,)).fetchone()
         category = row[0] if row and row[0] else 'Other'
 
         if fid == 'CALC:XAUGBP':
@@ -164,16 +128,13 @@ def main():
             ).fetchone()
             price_gbp = row_gc[0] / gbpusd if row_gc else None
             value = price_gbp * units if price_gbp else None
-
         elif fid.startswith('ASSET:'):
             curr, punit = get_instrument(conn, fid)
-            gbp = to_gbp(1.0, punit, curr, gbpusd, gbptry)
+            gbp   = to_gbp(1.0, punit, curr, gbpusd, gbptry)
             value = (gbp or 1.0) * units
-
         elif fid.startswith('COMPOSITE:'):
             price_gbp = get_composite_price_gbp(conn, fid, gbpusd, gbptry)
             value = price_gbp * units if price_gbp else None
-
         else:
             curr, punit = get_instrument(conn, fid)
             price       = get_latest_price(conn, fid)
@@ -181,37 +142,62 @@ def main():
             value       = price_gbp * units if price_gbp else None
 
         if value is not None:
-            snapshot['holdings'][fid] = round(value, 2)
-            snapshot['categories'][category] = round(
-                snapshot['categories'].get(category, 0) + value, 2
+            conn.execute(
+                "INSERT INTO snapshot_holdings (snapshot_id, fund_id, units, value_gbp) VALUES (?, ?, ?, ?)",
+                (snap_id, fid, units, round(value, 2))
             )
+            categories[category] = round(categories.get(category, 0) + value, 2)
             total += value
 
-    # Process cash accounts — save total and full breakdown
-    if cash_accounts:
-        cash_total = calc_cash_total(cash_accounts, gbpusd, gbptry)
-        snapshot['cash_total']             = round(cash_total, 2)
-        snapshot['holdings']['CASH:TOTAL'] = round(cash_total, 2)
-        snapshot['categories']['Cash']     = round(
-            snapshot['categories'].get('Cash', 0) + cash_total, 2
+    # Process cash accounts
+    cash_accounts = conn.execute(
+        "SELECT name, currency, amount FROM cash_accounts ORDER BY id"
+    ).fetchall()
+
+    cash_total = 0.0
+    for name, currency, amount in cash_accounts:
+        amount = float(amount)
+        if currency == 'GBP':
+            value_gbp = amount
+        elif currency == 'USD':
+            value_gbp = amount / gbpusd
+        elif currency == 'TRY':
+            value_gbp = amount / gbptry
+        else:
+            value_gbp = amount
+        cash_total += value_gbp
+        conn.execute(
+            "INSERT INTO snapshot_cash (snapshot_id, name, currency, amount, value_gbp) VALUES (?, ?, ?, ?, ?)",
+            (snap_id, name, currency, amount, round(value_gbp, 2))
         )
+
+    if cash_total > 0:
+        conn.execute(
+            "INSERT INTO snapshot_holdings (snapshot_id, fund_id, units, value_gbp) VALUES (?, 'CASH:TOTAL', NULL, ?)",
+            (snap_id, round(cash_total, 2))
+        )
+        categories['Cash'] = round(categories.get('Cash', 0) + cash_total, 2)
         total += cash_total
 
-    snapshot['total'] = round(total, 2)
+    # Save categories
+    for category, value_gbp in categories.items():
+        conn.execute(
+            "INSERT INTO snapshot_categories (snapshot_id, category, value_gbp) VALUES (?, ?, ?)",
+            (snap_id, category, value_gbp)
+        )
+
+    # Update total in header
+    conn.execute(
+        "UPDATE portfolio_snapshots SET total_gbp = ? WHERE id = ?",
+        (round(total, 2), snap_id)
+    )
+    conn.commit()
     conn.close()
 
-    # Save snapshot
-    os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
-    date_str = snapshot['date']
-    out_path = os.path.join(SNAPSHOTS_DIR, f"{date_str}.json")
-    with open(out_path, 'w') as f:
-        json.dump(snapshot, f, indent=2)
-
-    print(f"Snapshot saved: {out_path}")
+    print(f"Snapshot saved: {snap_date} (id={snap_id})")
     print(f"Total portfolio value: £{total:,.2f}")
-    print(f"Holdings captured: {len(snapshot['holdings'])}")
-    print(f"Cash total: £{snapshot['cash_total']:,.2f}")
-    print(f"Cash accounts captured: {len(cash_accounts)}")
+    print(f"Holdings captured: {len(holdings)}")
+    print(f"Cash accounts: {len(cash_accounts)} | Cash total: £{cash_total:,.2f}")
 
 
 if __name__ == '__main__':
