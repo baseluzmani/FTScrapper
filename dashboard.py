@@ -1,5 +1,5 @@
 # dashboard.py
-# Financial dashboard for FT Fund data.
+# Financial dashboard — Portfolio, P&L, Summary tabs.
 # Run with: python3 dashboard.py
 # Then open: http://localhost:8050
 
@@ -8,604 +8,22 @@ from dash import html, dcc, Input, Output, State, ALL, ctx
 import plotly.graph_objects as go
 import pandas as pd
 import sqlite3
-import json
-import os
-from datetime import datetime, timedelta
-import numpy as np
+from datetime import datetime
+from collections import defaultdict
+
 import config
-
-# ── 1. DATA LAYER ──────────────────────────────────────────────
-
-DB_PATH        = "data/funds.db"
-PORTFOLIO_PATH = "data/portfolio.json"
-GBPUSD         = None  # cached FX rate
-
-
-def load_data():
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query("""
-        SELECT p.fund_id, i.name as fund_name, i.asset_type, p.date,
-               p.open, p.high, p.low, p.close, p.volume
-        FROM prices p
-        LEFT JOIN instruments i ON p.fund_id = i.fund_id
-        ORDER BY p.fund_id, p.date
-    """, conn)
-    conn.close()
-    df['date'] = pd.to_datetime(df['date'])
-    return df
-
-
-def load_instruments():
-    """Load instruments table into a dict keyed by fund_id."""
-    conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute(
-        "SELECT fund_id, name, asset_type, currency, price_unit, category FROM instruments"
-    ).fetchall()
-    conn.close()
-    return {r[0]: {'name': r[1], 'asset_type': r[2], 'currency': r[3], 'price_unit': r[4], 'category': r[5] or '—'}
-            for r in rows}
-
-
-def load_portfolio():
-    """Load holdings from portfolio_holdings table."""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        rows = conn.execute("SELECT fund_id, units FROM portfolio_holdings ORDER BY fund_id").fetchall()
-        conn.close()
-        return [{'fund_id': r[0], 'units': r[1]} for r in rows]
-    except Exception:
-        return []
-
-
-def save_portfolio(portfolio):
-    """Save holdings to portfolio_holdings table."""
-    from datetime import datetime
-    now  = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn = sqlite3.connect(DB_PATH)
-    for item in portfolio:
-        conn.execute(
-            "INSERT OR REPLACE INTO portfolio_holdings (fund_id, units, updated_at) VALUES (?, ?, ?)",
-            (item['fund_id'], float(item['units']), now)
-        )
-    conn.commit()
-    conn.close()
-
-
-def delete_holding(fund_id):
-    """Remove a holding from portfolio_holdings table."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("DELETE FROM portfolio_holdings WHERE fund_id = ?", (fund_id,))
-    conn.commit()
-    conn.close()
-
-def load_cash_accounts():
-    """Load cash accounts from SQLite database."""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        rows = conn.execute(
-            "SELECT id, name, currency, amount FROM cash_accounts ORDER BY id"
-        ).fetchall()
-        conn.close()
-        return [{'id': r[0], 'name': r[1], 'currency': r[2], 'amount': r[3]} for r in rows]
-    except Exception:
-        return []
-
-
-def save_cash_accounts(accounts):
-    """Save cash accounts to SQLite — full replace of all rows."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("DELETE FROM cash_accounts")
-    for acc in accounts:
-        conn.execute(
-            "INSERT INTO cash_accounts (name, currency, amount) VALUES (?, ?, ?)",
-            (acc['name'], acc['currency'], float(acc['amount']))
-        )
-    conn.commit()
-    conn.close()
-
-
-def add_cash_account(name, currency, amount):
-    """Add a single cash account row."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "INSERT INTO cash_accounts (name, currency, amount) VALUES (?, ?, ?)",
-        (name, currency, float(amount))
-    )
-    conn.commit()
-    conn.close()
-
-
-def remove_cash_account(row_id):
-    """Remove a single cash account by its database id."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("DELETE FROM cash_accounts WHERE id = ?", (row_id,))
-    conn.commit()
-    conn.close()
-
-
-def calc_cash_total_gbp(accounts, fx_rates):
-    """Convert all cash accounts to GBP and return total."""
-    total = 0.0
-    for acc in accounts:
-        amount = float(acc.get('amount', 0))
-        curr   = acc.get('currency', 'GBP')
-        if curr == 'GBP':
-            total += amount
-        elif curr == 'USD':
-            total += amount / fx_rates.get('USD', 1.26)
-        elif curr == 'TRY':
-            total += amount / fx_rates.get('TRY', 43.0)
-    return total
-
-
-def get_fx_rates(df):
-    """Get latest FX rates from database. Returns dict of currency -> GBP rate."""
-    rates = {}
-    # GBPUSD=X gives how many USD per 1 GBP
-    fx = df[df['fund_id'] == 'YF:GBPUSD=X'].sort_values('date')
-    rates['USD'] = fx.iloc[-1]['close'] if not fx.empty else 1.26
-
-    # GBPTRY=X gives how many TRY per 1 GBP
-    fx2 = df[df['fund_id'] == 'YF:GBPTRY=X'].sort_values('date')
-    rates['TRY'] = fx2.iloc[-1]['close'] if not fx2.empty else 43.0
-
-    return rates
-
-
-def get_gbpusd(df):
-    """Get latest GBP/USD rate from database."""
-    return get_fx_rates(df)['USD']
-
-
-def to_gbp(price, price_unit, currency, gbpusd, fx_rates=None):
-    """Convert a price to GBP pounds."""
-    if price is None:
-        return None
-    # Convert pence to pounds
-    if price_unit == 'pence':
-        price = price / 100
-    # Points/ratios — Turkish stocks are priced as points in TRY
-    # We convert TRY points to GBP
-    if price_unit == 'point':
-        if currency == 'TRY' and fx_rates:
-            price = price / fx_rates['TRY']
-        else:
-            return None
-    elif price_unit == 'ratio':
-        return None
-    # Convert USD to GBP
-    if currency == 'USD':
-        price = price / (fx_rates['USD'] if fx_rates else gbpusd)
-    return price
-
-
-def build_calculated_series(df):
-    """Build calculated price series not available directly from Yahoo.
-    CALC:XAUGBP = GC=F (Gold Futures USD) / GBPUSD=X
-    """
-    rows = []
-
-    # Use Gold Futures (GC=F) as proxy for gold spot price in USD
-    xauusd = df[df['fund_id'] == 'YF:GC=F'].set_index('date')['close']
-    gbpusd = df[df['fund_id'] == 'YF:GBPUSD=X'].set_index('date')['close']
-
-    if xauusd.empty or gbpusd.empty:
-        return pd.DataFrame()
-
-    common_dates = sorted(set(xauusd.index) & set(gbpusd.index))
-    for date in common_dates:
-        gbpusd_val = gbpusd.loc[date]
-        if gbpusd_val == 0:
-            continue
-        price = xauusd.loc[date] / gbpusd_val
-        rows.append({
-            'fund_id':    'CALC:XAUGBP',
-            'fund_name':  'Gold / GBP (Spot)',
-            'asset_type': 'Commodity',
-            'date':       date,
-            'open':       price,
-            'high':       price,
-            'low':        price,
-            'close':      price,
-            'volume':     0,
-        })
-
-    if not rows:
-        return pd.DataFrame()
-
-    result = pd.DataFrame(rows)
-    result['date'] = pd.to_datetime(result['date'])
-    return result
-
-
-def build_composite_data(df):
-    """Build synthetic price series for composite funds defined in config."""
-    composites = getattr(config, 'COMPOSITE_FUNDS', [])
-    if not composites:
-        return pd.DataFrame()
-
-    rows = []
-    for comp in composites:
-        fund_id    = comp['fund_id']
-        fund_name  = comp['display_name']
-        asset_type = comp.get('asset_type', 'Fund')
-        components = comp['components']
-
-        series = {}
-        for c in components:
-            cid = c['fund_id']
-            cdf = df[df['fund_id'] == cid][['date', 'close']].sort_values('date')
-            if not cdf.empty:
-                series[cid] = cdf.set_index('date')['close']
-
-        if not series:
-            continue
-
-        common_dates = None
-        for s in series.values():
-            dates = set(s.index)
-            common_dates = dates if common_dates is None else common_dates & dates
-
-        if not common_dates or len(common_dates) < 2:
-            continue
-
-        common_dates     = sorted(common_dates)
-        base_date        = common_dates[0]
-        composite_series = pd.Series(0.0, index=common_dates)
-
-        for c in components:
-            cid    = c['fund_id']
-            weight = c['weight']
-            if cid not in series:
-                continue
-            s        = series[cid].loc[common_dates]
-            base_val = s.loc[base_date]
-            if base_val == 0:
-                continue
-            composite_series += (s / base_val) * 100 * weight
-
-        for date, price in composite_series.items():
-            rows.append({
-                'fund_id':    fund_id,
-                'fund_name':  fund_name,
-                'asset_type': asset_type,
-                'date':       date,
-                'open':       price,
-                'high':       price,
-                'low':        price,
-                'close':      price,
-                'volume':     0,
-            })
-
-    if not rows:
-        return pd.DataFrame()
-
-    result = pd.DataFrame(rows)
-    result['date'] = pd.to_datetime(result['date'])
-    return result
-
-
-def get_latest_price(df, fund_id):
-    fund_df = df[df['fund_id'] == fund_id]
-    if fund_df.empty:
-        return None
-    return fund_df.loc[fund_df['date'].idxmax(), 'close']
-
-
-def calc_return(df, fund_id, days_back=None, from_date=None):
-    fund_df = df[df['fund_id'] == fund_id].sort_values('date')
-    if fund_df.empty:
-        return None
-    latest_price = fund_df.iloc[-1]['close']
-    if from_date:
-        past_df = fund_df[fund_df['date'] <= pd.Timestamp(from_date)]
-    else:
-        past_df = fund_df[fund_df['date'] <= fund_df['date'].max() - timedelta(days=days_back)]
-    if past_df.empty:
-        return None
-    past_price = past_df.iloc[-1]['close']
-    if past_price == 0:
-        return None
-    return ((latest_price / past_price) - 1) * 100
-
-
-def ytd_date():
-    dec31 = datetime(datetime.now().year - 1, 12, 31)
-    while dec31.weekday() >= 5:
-        dec31 -= timedelta(days=1)
-    return dec31.strftime('%Y-%m-%d')
-
-
-def build_returns_table(df, since_date):
-    funds = df[['fund_id', 'fund_name', 'asset_type']].drop_duplicates(subset=['fund_id'])
-    rows = []
-    for _, fund in funds.iterrows():
-        fid    = fund['fund_id']
-        fname  = fund['fund_name']
-        atype  = fund['asset_type'] if pd.notna(fund['asset_type']) else '—'
-        latest = get_latest_price(df, fid)
-        rows.append({
-            'fund_id': fid,
-            'Fund':    fname,
-            'Type':    atype,
-            'Price':   round(latest, 2) if latest else None,
-            '1D':      calc_return(df, fid, days_back=1),
-            '1W':      calc_return(df, fid, days_back=5),
-            '1M':      calc_return(df, fid, days_back=21),
-            '3M':      calc_return(df, fid, days_back=63),
-            'YTD':     calc_return(df, fid, from_date=ytd_date()),
-            'Since':   calc_return(df, fid, from_date=since_date),
-        })
-    result = pd.DataFrame(rows)
-    result = result.sort_values('YTD', ascending=False, na_position='last')
-    return result
-
-
-def heatmap_color(val, vmin, vmax):
-    if val is None or (isinstance(val, float) and np.isnan(val)):
-        return 'rgb(240,240,240)'
-    if val == 0:
-        return 'rgb(255,255,255)'
-    if val > 0:
-        intensity = min(abs(val) / 3.0, 1.0)
-        r = int(255 - intensity * 180)
-        g = 255
-        b = int(255 - intensity * 180)
-        return f'rgb({r},{g},{b})'
-    else:
-        intensity = min(abs(val) / 3.0, 1.0)
-        r = 255
-        g = int(255 - intensity * 180)
-        b = int(255 - intensity * 180)
-        return f'rgb({r},{g},{b})'
-
-
-def get_top4_by_ytd(df, fund_ids):
-    returns = []
-    for fid in fund_ids:
-        r = calc_return(df, fid, from_date=ytd_date())
-        if r is not None:
-            returns.append((fid, r))
-    returns.sort(key=lambda x: x[1], reverse=True)
-    return [fid for fid, _ in returns[:4]]
-
-
-def get_top4_funds(df, from_date):
-    funds = df['fund_id'].unique()
-    returns = []
-    for fid in funds:
-        r = calc_return(df, fid, from_date=from_date)
-        if r is not None:
-            returns.append((fid, r))
-    returns.sort(key=lambda x: x[1], reverse=True)
-    return [fid for fid, _ in returns[:4]]
-
-
-def render_returns_table(table_df, since_label, sort_state, header_type='market',
-                         selected_funds=None, clickable=False):
-    return_cols    = ['1D', '1W', '1M', '3M', 'YTD', 'Since']
-    selected_funds = selected_funds or []
-
-    col_ranges = {}
-    for col in return_cols:
-        vals = table_df[col].dropna()
-        col_ranges[col] = (vals.min(), vals.max()) if len(vals) > 0 else (0, 0)
-
-    col_defs = [
-        ('Fund',       'Fund',  False),
-        ('Type',       'Type',  False),
-        ('Price',      'Price', False),
-        ('1D %',       '1D',    True),
-        ('1W %',       '1W',    True),
-        ('1M %',       '1M',    True),
-        ('3M %',       '3M',    True),
-        ('YTD %',      'YTD',   True),
-        (since_label,  'Since', True),
-    ]
-
-    def sort_arrow(col_key):
-        if sort_state['col'] == col_key:
-            return ' ▲' if sort_state['asc'] else ' ▼'
-        return ' ⇅'
-
-    header = html.Tr([
-        html.Th(
-            f"{label}{sort_arrow(key)}",
-            id={'type': f'sort-header-{header_type}', 'col': key},
-            n_clicks=0,
-            style={
-                'backgroundColor': '#1a3a5c', 'color': 'white',
-                'padding': '5px 8px', 'fontSize': '10px', 'fontWeight': '600',
-                'textAlign': 'center' if label != 'Fund' else 'left',
-                'letterSpacing': '0.03em', 'whiteSpace': 'nowrap',
-                'cursor': 'pointer', 'userSelect': 'none',
-            }
-        ) for label, key, _ in col_defs
-    ])
-
-    rows = []
-    for _, row in table_df.iterrows():
-        fid         = row['fund_id']
-        is_selected = fid in selected_funds
-        row_bg      = '#e8f0f8' if is_selected else 'transparent'
-        row_style   = {
-            'borderBottom': '1px solid #f0f3f7',
-            'backgroundColor': row_bg,
-            'cursor': 'pointer' if clickable else 'default',
-        }
-
-        max_len   = 30
-        fund_name = str(row['Fund']) if row['Fund'] and str(row['Fund']) != 'nan' else row['fund_id']
-        fund_disp = fund_name if len(fund_name) <= max_len else fund_name[:max_len] + '…'
-
-        cells = [
-            html.Td(
-                html.Div([
-                    html.Span('● ', style={
-                        'color': '#2E75B6', 'fontSize': '10px',
-                        'marginRight': '4px',
-                        'opacity': '1' if is_selected else '0',
-                    }),
-                    html.Span(fund_disp, title=fund_name),
-                ]),
-                style={
-                    'padding': '4px 6px', 'fontSize': '11px',
-                    'fontWeight': '600' if is_selected else '500',
-                    'color': '#1a3a5c', 'whiteSpace': 'nowrap',
-                    'maxWidth': '200px', 'overflow': 'hidden',
-                }
-            ),
-            html.Td(row['Type'], style={
-                'padding': '4px 6px', 'fontSize': '10px',
-                'textAlign': 'center', 'color': '#666', 'whiteSpace': 'nowrap',
-            }),
-            html.Td(
-                f"{row['Price']:.2f}" if row['Price'] else 'N/A',
-                style={
-                    'padding': '4px 6px', 'fontSize': '11px',
-                    'textAlign': 'center', 'fontFamily': 'monospace', 'color': '#333',
-                }
-            ),
-        ]
-        for col in return_cols:
-            val = row[col]
-            vmin, vmax = col_ranges[col]
-            bg = heatmap_color(val, vmin, vmax)
-            formatted = f"{val:+.1f}%" if val is not None and not np.isnan(val) else 'N/A'
-            cells.append(html.Td(formatted, style={
-                'padding': '4px 6px', 'fontSize': '11px',
-                'textAlign': 'center', 'fontWeight': '600',
-                'fontFamily': 'monospace', 'backgroundColor': bg,
-                'color': '#1a1a1a', 'borderRadius': '3px',
-            }))
-
-        if clickable:
-            row_type = 'market-row' if header_type == 'market' else 'holding-row'
-            tr = html.Tr(
-                cells,
-                id={'type': row_type, 'fund_id': fid},
-                n_clicks=0,
-                style=row_style,
-            )
-        else:
-            tr = html.Tr(cells, style=row_style)
-
-        rows.append(tr)
-
-    return html.Table(
-        [html.Thead(header), html.Tbody(rows)],
-        style={'width': '100%', 'borderCollapse': 'collapse'}
-    )
-
-
-def build_relative_chart(df_combined, selected_funds, since_date):
-    fig = go.Figure()
-    if not selected_funds:
-        fig.update_layout(
-            plot_bgcolor='white', paper_bgcolor='white', height=400,
-            annotations=[dict(
-                text='Click a fund in the table to add it to the chart',
-                x=0.5, y=0.5, xref='paper', yref='paper',
-                showarrow=False, font=dict(size=13, color='#aaa'),
-            )],
-            margin=dict(l=40, r=40, t=10, b=40),
-        )
-        return fig
-
-    try:
-        start = pd.Timestamp(since_date)
-    except Exception:
-        start = pd.Timestamp(DEFAULT_DATE)
-
-    fund_returns = []
-    for fund_id in selected_funds:
-        r = calc_return(df_combined, fund_id, from_date=since_date)
-        fund_returns.append((fund_id, r or -999))
-    fund_returns.sort(key=lambda x: x[1], reverse=True)
-
-    for fund_id, _ in fund_returns:
-        all_fund_df = df_combined[df_combined['fund_id'] == fund_id].sort_values('date')
-        if all_fund_df.empty:
-            continue
-
-        base_df = all_fund_df[all_fund_df['date'] <= start]
-        base_price = base_df.iloc[-1]['close'] if not base_df.empty else all_fund_df.iloc[0]['close']
-
-        if base_price == 0:
-            continue
-
-        fund_df = all_fund_df[all_fund_df['date'] >= start].copy()
-        if fund_df.empty or len(fund_df) < 2:
-            continue
-
-        fund_df['return'] = ((fund_df['close'] / base_price) - 1) * 100
-        fund_name = fund_df.iloc[0]['fund_name']
-
-        fig.add_trace(go.Scatter(
-            x=fund_df['date'], y=fund_df['return'],
-            mode='lines', name=fund_name, line=dict(width=2),
-            hovertemplate='%{x|%d %b %Y}: %{y:.1f}%<extra>' + fund_name + '</extra>',
-        ))
-
-        idx_max  = fund_df['return'].idxmax()
-        idx_min  = fund_df['return'].idxmin()
-        last_row = fund_df.iloc[-1]
-
-        for point, label, ay in [
-            (fund_df.loc[idx_max], f"H: {fund_df.loc[idx_max, 'return']:+.1f}%", -18),
-            (fund_df.loc[idx_min], f"L: {fund_df.loc[idx_min, 'return']:+.1f}%",  18),
-            (last_row,             f"▶ {last_row['return']:+.1f}%",                0),
-        ]:
-            fig.add_annotation(
-                x=point['date'], y=point['return'], text=label,
-                showarrow=True, arrowhead=0, arrowwidth=1,
-                ax=20, ay=ay, font=dict(size=9, color='#333'),
-                bgcolor='rgba(255,255,255,0.85)',
-                bordercolor='#ccc', borderwidth=1, borderpad=2,
-            )
-
-    fig.update_layout(
-        yaxis_tickformat='+.1f', yaxis_ticksuffix='%',
-        hovermode='x unified',
-        legend=dict(orientation='h', y=-0.22, x=0, font=dict(size=10)),
-        margin=dict(l=40, r=80, t=10, b=80),
-        plot_bgcolor='white', paper_bgcolor='white', height=400,
-    )
-    fig.update_xaxes(showgrid=True, gridcolor='#f0f0f0', tickfont=dict(size=10))
-    fig.update_yaxes(
-        showgrid=True, gridcolor='#f0f0f0',
-        zeroline=True, zerolinecolor='#bbb', zerolinewidth=1,
-        tickfont=dict(size=10),
-    )
-    return fig
-
-
-# ── 2. APP SETUP ───────────────────────────────────────────────
-
-def get_snapshot_options():
-    """Load snapshot dates from database."""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        rows = conn.execute("SELECT snap_date FROM portfolio_snapshots ORDER BY snap_date DESC").fetchall()
-        conn.close()
-        options = [{'label': 'None', 'value': 'none'}]
-        for r in rows:
-            dt = pd.Timestamp(r[0])
-            options.append({'label': dt.strftime('%d %b %Y'), 'value': r[0]})
-        return options
-    except Exception:
-        return [{'label': 'None', 'value': 'none'}]
-
-def get_latest_snapshot_value():
-    """Return the most recent snapshot date string from database."""
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        row  = conn.execute("SELECT snap_date FROM portfolio_snapshots ORDER BY snap_date DESC LIMIT 1").fetchone()
-        conn.close()
-        return row[0] if row else 'none'
-    except Exception:
-        return 'none'
-
+from data import (
+    DB_PATH, load_data, load_instruments, load_portfolio, save_portfolio,
+    delete_holding, upsert_holding, load_cash_accounts, add_cash_account,
+    remove_cash_account, calc_cash_total_gbp, get_fx_rates, get_gbpusd,
+    to_gbp, get_latest_price, build_df_combined, calc_return, ytd_date,
+    heatmap_color, calc_pnl, txn_price_to_gbp, recalc_portfolio_from_transactions,
+    get_snapshot_options, get_latest_snapshot_value, load_snapshot,
+    get_holding_value_gbp,
+)
+
+
+# ── 1. APP SETUP ───────────────────────────────────────────────
 
 app = dash.Dash(
     __name__,
@@ -628,9 +46,6 @@ app.index_string = (
     '    margin-left: 0 !important;'
     '    flex-shrink: 1 !important;'
     '  }'
-    '  #holdings-relative-chart, #relative-chart {'
-    '    display: none !important;'
-    '  }'
     '  .sum-fund { width: 40% !important; max-width: 40% !important; }'
     '  .sum-num  { width: 1% !important; white-space: nowrap !important; }'
     '  .portfolio-cat-panel { width: 100% !important; margin-left: 0 !important; }'
@@ -652,35 +67,9 @@ app.index_string = (
     '</html>'
 )
 
-df           = load_data()
-df_composite = build_composite_data(df)
-df_calc      = build_calculated_series(df)
-df_combined  = pd.concat(
-    [x for x in [df, df_composite, df_calc] if not x.empty],
-    ignore_index=True
-)
-instruments  = load_instruments()
-
-funds = df[['fund_id', 'fund_name']].drop_duplicates()
-fund_options = [
-    {'label': row['fund_name'], 'value': row['fund_id']}
-    for _, row in funds.iterrows()
-]
-
-composite_options = [
-    {'label': c['display_name'], 'value': c['fund_id']}
-    for c in getattr(config, 'COMPOSITE_FUNDS', [])
-]
-all_fund_options = fund_options + composite_options
-
-DEFAULT_DATE = config.DEFAULT_SINCE_DATE
-max_date     = df['date'].max().date()
-min_date     = df['date'].min().date()
-top4_default = get_top4_funds(df_combined, DEFAULT_DATE)
-
-_portfolio_ids        = [h['fund_id'] for h in load_portfolio()]
-top4_holdings_default = get_top4_by_ytd(df_combined, _portfolio_ids)
-
+df          = load_data()
+df_combined = build_df_combined(df)
+instruments = load_instruments()
 
 def _include_in_portfolio(fund_id, inst):
     unit = inst.get('price_unit', '')
@@ -701,42 +90,30 @@ portfolio_options = [
     if _include_in_portfolio(k, v)
 ]
 
-# ── 3. STYLES ──────────────────────────────────────────────────
+
+# ── 2. STYLES ──────────────────────────────────────────────────
 
 CARD = {
-    'backgroundColor': '#ffffff',
-    'borderRadius': '8px',
-    'padding': '14px 18px',
-    'boxShadow': '0 1px 4px rgba(0,0,0,0.08)',
+    'backgroundColor': '#ffffff', 'borderRadius': '8px',
+    'padding': '14px 18px', 'boxShadow': '0 1px 4px rgba(0,0,0,0.08)',
     'marginBottom': '12px',
 }
 SECTION_TITLE = {
-    'color': '#1a3a5c',
-    'fontSize': '11px',
-    'fontWeight': '700',
-    'letterSpacing': '0.08em',
-    'textTransform': 'uppercase',
-    'marginBottom': '10px',
-    'marginTop': '0',
+    'color': '#1a3a5c', 'fontSize': '11px', 'fontWeight': '700',
+    'letterSpacing': '0.08em', 'textTransform': 'uppercase',
+    'marginBottom': '10px', 'marginTop': '0',
 }
 TAB_STYLE = {
-    'padding': '8px 20px',
-    'fontSize': '12px',
-    'fontWeight': '600',
-    'color': '#666',
-    'borderBottom': '2px solid transparent',
-    'cursor': 'pointer',
+    'padding': '8px 20px', 'fontSize': '12px', 'fontWeight': '600',
+    'color': '#666', 'borderBottom': '2px solid transparent', 'cursor': 'pointer',
 }
 TAB_SELECTED_STYLE = {
-    'padding': '8px 20px',
-    'fontSize': '12px',
-    'fontWeight': '600',
-    'color': '#2E75B6',
-    'borderBottom': '2px solid #2E75B6',
-    'cursor': 'pointer',
+    'padding': '8px 20px', 'fontSize': '12px', 'fontWeight': '600',
+    'color': '#2E75B6', 'borderBottom': '2px solid #2E75B6', 'cursor': 'pointer',
 }
 
-# ── 4. LAYOUT ──────────────────────────────────────────────────
+
+# ── 3. LAYOUT ──────────────────────────────────────────────────
 
 app.layout = html.Div([
 
@@ -752,10 +129,8 @@ app.layout = html.Div([
                 'fontSize': '18px', 'letterSpacing': '0.1em',
             }),
         ]),
-        html.Span(
-            id='data-date-label',
-            style={'fontSize': '11px', 'color': '#999', 'alignSelf': 'center'}
-        ),
+        html.Span(id='data-date-label',
+                  style={'fontSize': '11px', 'color': '#999', 'alignSelf': 'center'}),
     ], style={
         'display': 'flex', 'justifyContent': 'space-between',
         'alignItems': 'center', 'padding': '12px 20px',
@@ -765,126 +140,17 @@ app.layout = html.Div([
 
     # Tabs
     dcc.Tabs(
-        id='main-tabs',
-        value='tab-holdings',
+        id='main-tabs', value='tab-portfolio',
         children=[
-            dcc.Tab(label='My Holdings',     value='tab-holdings',
+            dcc.Tab(label='Portfolio', value='tab-portfolio',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
-            dcc.Tab(label='Market Overview', value='tab-market',
+            dcc.Tab(label='P&L',       value='tab-pnl',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
-            dcc.Tab(label='Portfolio',       value='tab-portfolio',
-                    style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
-            dcc.Tab(label='P&L',             value='tab-pnl',
-                    style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
-            dcc.Tab(label='Summary',         value='tab-summary',
+            dcc.Tab(label='Summary',   value='tab-summary',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
         ],
         style={'backgroundColor': '#fff', 'borderBottom': '1px solid #eee', 'marginBottom': '0'}
     ),
-
-    # ── HOLDINGS TAB
-    html.Div([
-        html.Div([
-            html.Div([
-                html.P("MY HOLDINGS", style={**SECTION_TITLE, 'marginBottom': '0'}),
-                html.Div([
-                    html.Span("Click rows to toggle chart  •  ", style={
-                        'fontSize': '11px', 'color': '#aaa', 'alignSelf': 'center',
-                    }),
-                    html.Label("Since:", style={
-                        'fontSize': '11px', 'color': '#666',
-                        'marginRight': '6px', 'alignSelf': 'center',
-                    }),
-                    dcc.DatePickerSingle(
-                        id='holdings-since-date',
-                        date=DEFAULT_DATE,
-                        min_date_allowed=min_date,
-                        max_date_allowed=max_date,
-                        display_format='DD MMM YYYY',
-                    ),
-                ], style={'display': 'flex', 'alignItems': 'center', 'gap': '6px'}),
-            ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
-        ], style=CARD),
-
-        # FIX: flex row with minWidth:0 on table side so it shrinks properly
-        html.Div([
-            html.Div([
-                html.Div(id='holdings-table-div'),
-            ], style={'flex': '1', 'minWidth': '0', 'overflow': 'hidden'}),
-
-            html.Div([
-                html.Div([
-                    html.P("RELATIVE RETURNS", style={**SECTION_TITLE, 'marginBottom': '4px'}),
-                    html.Span(id='holdings-chart-info', style={'fontSize': '11px', 'color': '#aaa'}),
-                ], style={'marginBottom': '8px'}),
-                dcc.Graph(id='holdings-relative-chart', config={'displayModeBar': False}),
-            ], style={
-                'flexShrink': '0', 'width': '320px',
-                'backgroundColor': '#fff',
-                'borderRadius': '8px', 'padding': '14px 18px',
-                'boxShadow': '0 1px 4px rgba(0,0,0,0.08)',
-                'marginBottom': '12px', 'marginLeft': '12px',
-            }),
-        ], style={'display': 'flex', 'alignItems': 'flex-start', 'width': '100%', 'minWidth': '0'}),
-
-        dcc.Store(id='holdings-selected-funds', data=top4_holdings_default),
-
-    ], id='holdings-tab-content', style={
-        'display': 'block', 'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
-    }),
-
-    # ── MARKET TAB
-    html.Div([
-        html.Div([
-            html.Div([
-                html.P("MARKET OVERVIEW", style={**SECTION_TITLE, 'marginBottom': '0'}),
-                html.Div([
-                    html.Span("Click rows to toggle chart  •  ", style={
-                        'fontSize': '11px', 'color': '#aaa', 'alignSelf': 'center',
-                    }),
-                    html.Label("Since:", style={
-                        'fontSize': '11px', 'color': '#666',
-                        'marginRight': '6px', 'alignSelf': 'center',
-                    }),
-                    dcc.DatePickerSingle(
-                        id='market-since-date',
-                        date=DEFAULT_DATE,
-                        min_date_allowed=min_date,
-                        max_date_allowed=max_date,
-                        display_format='DD MMM YYYY',
-                    ),
-                ], style={'display': 'flex', 'alignItems': 'center', 'gap': '6px'}),
-            ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center'}),
-        ], style=CARD),
-
-        # FIX: flex row with minWidth:0 on table side so it shrinks properly
-        html.Div([
-            html.Div([
-                html.Div(id='market-table-div'),
-            ], style={'flex': '1', 'minWidth': '0', 'overflow': 'hidden'}),
-
-            html.Div([
-                html.Div([
-                    html.P("RELATIVE RETURNS", style={**SECTION_TITLE, 'marginBottom': '4px'}),
-                    html.Span(id='market-chart-info', style={'fontSize': '11px', 'color': '#aaa'}),
-                ], style={'marginBottom': '8px'}),
-                dcc.Graph(id='relative-chart', config={'displayModeBar': False}),
-            ], style={
-                'flexShrink': '0', 'width': '320px',
-                'backgroundColor': '#fff',
-                'borderRadius': '8px', 'padding': '14px 18px',
-                'boxShadow': '0 1px 4px rgba(0,0,0,0.08)',
-                'marginBottom': '12px', 'marginLeft': '12px',
-            }),
-        ], style={'display': 'flex', 'alignItems': 'flex-start', 'width': '100%', 'minWidth': '0'}),
-
-        dcc.Store(id='market-selected-funds', data=top4_default),
-
-    ], id='market-tab-content', style={
-        'display': 'none', 'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
-    }),
 
     # ── PORTFOLIO TAB
     html.Div([
@@ -1159,11 +425,11 @@ app.layout = html.Div([
 })
 
 
-# ── 5. TAB VISIBILITY ──────────────────────────────────────────
+
+
+# ── 4. TAB VISIBILITY ──────────────────────────────────────────
 
 @app.callback(
-    Output('holdings-tab-content',  'style'),
-    Output('market-tab-content',    'style'),
     Output('portfolio-tab-content', 'style'),
     Output('pnl-tab-content',       'style'),
     Output('summary-tab-content',   'style'),
@@ -1173,208 +439,28 @@ app.layout = html.Div([
     Input('auto-refresh',      'n_intervals'),
 )
 def switch_tab(tab, reload_trigger, n_intervals):
-    global df, df_composite, df_combined, instruments
+    global df, df_combined, instruments
     if reload_trigger or n_intervals:
-        df           = load_data()
-        df_composite = build_composite_data(df)
-        df_calc      = build_calculated_series(df)
-        df_combined  = pd.concat(
-            [x for x in [df, df_composite, df_calc] if not x.empty],
-            ignore_index=True
-        )
-        instruments  = load_instruments()
+        df          = load_data()
+        df_combined = build_df_combined(df)
+        instruments = load_instruments()
 
     date_label = f"Data as of {df['date'].max().strftime('%d %b %Y')}"
-
-    base = {
-        'padding': '12px 16px 16px 16px',
-        'maxWidth': '1400px',
-        'margin': '0 auto',
-        'overflowX': 'hidden',
-    }
+    base = {'padding': '12px 16px 16px 16px', 'maxWidth': '1400px',
+            'margin': '0 auto', 'overflowX': 'hidden'}
     show = {**base, 'display': 'block'}
     hide = {**base, 'display': 'none'}
 
-    if tab == 'tab-holdings':
-        return show, hide, hide, hide, hide, date_label
-    elif tab == 'tab-market':
-        return hide, show, hide, hide, hide, date_label
-    elif tab == 'tab-portfolio':
-        return hide, hide, show, hide, hide, date_label
+    if tab == 'tab-portfolio':
+        return show, hide, hide, date_label
     elif tab == 'tab-pnl':
-        return hide, hide, hide, show, hide, date_label
+        return hide, show, hide, date_label
     elif tab == 'tab-summary':
-        return hide, hide, hide, hide, show, date_label
-    return show, hide, hide, hide, hide, date_label
+        return hide, hide, show, date_label
+    return show, hide, hide, date_label
 
 
-# ── 6. HOLDINGS CALLBACKS ──────────────────────────────────────
-
-@app.callback(
-    Output('holdings-selected-funds', 'data'),
-    Input({'type': 'holding-row', 'fund_id': ALL}, 'n_clicks'),
-    State('holdings-selected-funds', 'data'),
-    prevent_initial_call=True,
-)
-def toggle_holding(n_clicks, selected):
-    if not any(n_clicks):
-        return selected
-    triggered = ctx.triggered_id
-    if not triggered:
-        return selected
-    fid      = triggered['fund_id']
-    selected = list(selected or [])
-    if fid in selected:
-        selected.remove(fid)
-    else:
-        selected.append(fid)
-    return selected
-
-
-@app.callback(
-    Output('holdings-table-div',   'children'),
-    Output('sort-state-holdings',  'data'),
-    Input('holdings-since-date',   'date'),
-    Input({'type': 'sort-header-holdings', 'col': ALL}, 'n_clicks'),
-    Input('holdings-selected-funds', 'data'),
-    State('sort-state-holdings',   'data'),
-)
-def update_holdings(since_date, n_clicks, selected_funds, sort_state):
-    since_date  = since_date or DEFAULT_DATE
-    since_label = pd.Timestamp(since_date).strftime('%d %b %y')
-
-    triggered = ctx.triggered_id
-    if triggered and isinstance(triggered, dict) and triggered.get('type') == 'sort-header-holdings':
-        clicked_col = triggered['col']
-        if sort_state['col'] == clicked_col:
-            sort_state['asc'] = not sort_state['asc']
-        else:
-            sort_state['col'] = clicked_col
-            sort_state['asc'] = False
-
-    portfolio     = load_portfolio()
-    holding_ids   = [h['fund_id'] for h in portfolio]
-    all_names     = {fid: instruments.get(fid, {}).get('name', fid) for fid in holding_ids}
-
-    holdings_df = df_combined[df_combined['fund_id'].isin(holding_ids)].copy()
-    if holdings_df.empty:
-        return html.P("No holdings found. Add funds in the Portfolio tab.", style={'color': '#999', 'fontSize': '12px'}), sort_state
-
-    table_df = build_returns_table(holdings_df, since_date)
-    table_df['Fund'] = table_df['fund_id'].map(lambda fid: all_names.get(fid, fid))
-
-    sort_col = sort_state['col']
-    sort_asc = sort_state['asc']
-    if sort_col in table_df.columns:
-        table_df = table_df.sort_values(sort_col, ascending=sort_asc, na_position='last')
-
-    sections = []
-    for cat, group in table_df.groupby('Type', sort=False):
-        sections.append(html.Div([
-            html.P(cat.upper(), style={
-                **SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px',
-            }),
-            # FIX: each section table scrolls horizontally within its card
-            html.Div(
-                render_returns_table(
-                    group, since_label, sort_state,
-                    header_type='holdings', selected_funds=selected_funds, clickable=True,
-                ),
-                style={'overflowX': 'auto'}
-            ),
-        ], style=CARD))
-
-    return html.Div(sections), sort_state
-
-
-@app.callback(
-    Output('holdings-relative-chart', 'figure'),
-    Output('holdings-chart-info',     'children'),
-    Input('holdings-selected-funds',  'data'),
-    Input('holdings-since-date',      'date'),
-)
-def update_holdings_chart(selected_funds, since_date):
-    selected_funds = selected_funds or []
-    since_date     = since_date or DEFAULT_DATE
-    count          = len(selected_funds)
-    info           = f"{count} fund{'s' if count != 1 else ''} selected" if count else "No funds selected"
-    return build_relative_chart(df_combined, selected_funds, since_date), info
-
-
-# ── 7. MARKET CALLBACKS ────────────────────────────────────────
-
-@app.callback(
-    Output('market-selected-funds', 'data'),
-    Input({'type': 'market-row', 'fund_id': ALL}, 'n_clicks'),
-    State('market-selected-funds', 'data'),
-    prevent_initial_call=True,
-)
-def toggle_market(n_clicks, selected):
-    if not any(n_clicks):
-        return selected
-    triggered = ctx.triggered_id
-    if not triggered:
-        return selected
-    fid      = triggered['fund_id']
-    selected = list(selected or [])
-    if fid in selected:
-        selected.remove(fid)
-    else:
-        selected.append(fid)
-    return selected
-
-
-@app.callback(
-    Output('market-table-div',   'children'),
-    Output('sort-state-market',  'data'),
-    Input('market-since-date',   'date'),
-    Input({'type': 'sort-header-market', 'col': ALL}, 'n_clicks'),
-    Input('market-selected-funds', 'data'),
-    State('sort-state-market',   'data'),
-)
-def update_market_table(since_date, n_clicks, selected_funds, sort_state):
-    since_date = since_date or DEFAULT_DATE
-
-    triggered = ctx.triggered_id
-    if triggered and isinstance(triggered, dict) and triggered.get('type') == 'sort-header-market':
-        clicked_col = triggered['col']
-        if sort_state['col'] == clicked_col:
-            sort_state['asc'] = not sort_state['asc']
-        else:
-            sort_state['col'] = clicked_col
-            sort_state['asc'] = False
-
-    table_df = build_returns_table(df_combined, since_date)
-    sort_col  = sort_state['col']
-    sort_asc  = sort_state['asc']
-    if sort_col in table_df.columns:
-        table_df = table_df.sort_values(sort_col, ascending=sort_asc, na_position='last')
-
-    since_label = pd.Timestamp(since_date).strftime('%d %b %y')
-
-    # FIX: wrap market table in scrollable div
-    return html.Div(
-        render_returns_table(
-            table_df, since_label, sort_state,
-            header_type='market', selected_funds=selected_funds, clickable=True,
-        ),
-        style={'overflowX': 'auto'}
-    ), sort_state
-
-
-@app.callback(
-    Output('relative-chart',    'figure'),
-    Output('market-chart-info', 'children'),
-    Input('market-selected-funds', 'data'),
-    Input('market-since-date',     'date'),
-)
-def update_market_chart(selected_funds, since_date):
-    selected_funds = selected_funds or []
-    since_date     = since_date or DEFAULT_DATE
-    count          = len(selected_funds)
-    info           = f"{count} fund{'s' if count != 1 else ''} selected" if count else "No funds selected"
-    return build_relative_chart(df_combined, selected_funds, since_date), info
-
+# ── 5. PORTFOLIO CALLBACKS ─────────────────────────────────────
 
 # ── 8. PORTFOLIO CALLBACKS ─────────────────────────────────────
 
@@ -1846,135 +932,6 @@ def update_portfolio_entry(save_clicks, remove_clicks, fund_id, units, reload):
     return '', reload, units
 
 
-# ── 9. P&L CALLBACKS ──────────────────────────────────────────
-
-def txn_price_to_gbp(price, txn_currency, txn_fx_rate, price_unit="pound"):
-    """Convert a transaction price to GBP pounds."""
-    p  = float(price)
-    fx = float(txn_fx_rate) if txn_fx_rate else 1.0
-    c  = str(txn_currency or "GBP").strip().upper()
-
-    if price_unit == "pence" and c == "GBP":
-        p = p / 100
-
-    if c in ("GBP", "GBPC"):
-        return p
-    elif c == "USD":
-        return p / fx
-    elif c == "XAU":
-        return p
-    elif c == "TRY":
-        return p / fx
-    return p
-
-
-def calc_pnl(gbpusd, fx_rates):
-    conn = sqlite3.connect(DB_PATH)
-    txns = pd.read_sql_query(
-        """SELECT t.fund_id, t.account, t.trade_date, t.type,
-               t.quantity, t.price, t.currency, t.fx_rate,
-               i.name, i.price_unit, i.category
-        FROM transactions t
-        LEFT JOIN instruments i ON t.fund_id = i.fund_id
-        ORDER BY t.fund_id, t.trade_date""", conn)
-    conn.close()
-
-    if txns.empty:
-        return pd.DataFrame()
-
-    results = []
-    for fund_id, group in txns.groupby("fund_id"):
-        inst     = instruments.get(fund_id, {})
-        name     = inst.get("name", fund_id)
-        category = inst.get("category", "—")
-        punit    = inst.get("price_unit", "pound")
-        curr     = inst.get("currency", "GBP")
-
-        total_qty       = 0.0
-        total_cost_gbp  = 0.0
-        realised_pnl    = 0.0
-        total_dividends = 0.0
-
-        for _, r in group.iterrows():
-            qty   = float(r["quantity"])
-            price = float(r["price"])
-            ttype = r["type"]
-
-            cost_per_unit = txn_price_to_gbp(price, r["currency"], r["fx_rate"], punit)
-            cost_gbp      = qty * cost_per_unit
-
-            if ttype == "BUY":
-                total_qty      += qty
-                total_cost_gbp += cost_gbp
-
-            elif ttype == "DIVIDEND":
-                # Dividend received — convert to GBP and reduce cost base
-                div_gbp         = txn_price_to_gbp(qty, r["currency"], r["fx_rate"], "pound")
-                total_cost_gbp  = max(total_cost_gbp - div_gbp, 0)
-                total_dividends += div_gbp
-
-            elif ttype == "SELL":
-                if total_qty > 0:
-                    avg_cost = total_cost_gbp / total_qty
-                    sell_qty = min(qty, total_qty)
-                    realised_pnl   += sell_qty * (cost_per_unit - avg_cost)
-                    total_cost_gbp -= sell_qty * avg_cost
-                    total_qty      -= sell_qty
-                    total_qty       = max(total_qty, 0)
-
-        avg_cost_gbp = total_cost_gbp / total_qty if total_qty > 0 else 0
-
-        if total_qty > 0:
-            if fund_id.startswith("COMPOSITE:"):
-                comp_def = next((c for c in getattr(config, "COMPOSITE_FUNDS", []) if c["fund_id"] == fund_id), None)
-                current_price_gbp = None
-                if comp_def:
-                    weighted = 0.0
-                    for c in comp_def["components"]:
-                        cp   = get_latest_price(df_combined, c["fund_id"])
-                        ci   = instruments.get(c["fund_id"], {})
-                        cgbp = to_gbp(cp, ci.get("price_unit","pence"), ci.get("currency","GBP"), gbpusd, fx_rates)
-                        if cgbp:
-                            weighted += cgbp * c["weight"]
-                    current_price_gbp = weighted if weighted > 0 else None
-            elif fund_id.startswith(("CASH:", "ASSET:")):
-                current_price_gbp = 1.0
-            else:
-                cp = get_latest_price(df_combined, fund_id)
-                current_price_gbp = to_gbp(cp, punit, curr, gbpusd, fx_rates)
-
-            current_value  = current_price_gbp * total_qty if current_price_gbp else None
-            unrealised_pnl = (current_value - total_cost_gbp) if current_value is not None else None
-        else:
-            current_value  = None
-            unrealised_pnl = None
-
-        if unrealised_pnl is not None:
-            total_pnl = realised_pnl + unrealised_pnl + total_dividends
-        elif realised_pnl != 0 or total_dividends != 0:
-            total_pnl = realised_pnl + total_dividends
-        else:
-            continue
-
-        cost_basis_for_pct = total_cost_gbp + abs(realised_pnl) + total_dividends
-        pnl_pct = (total_pnl / cost_basis_for_pct * 100) if cost_basis_for_pct > 0 else None
-
-        results.append({
-            "fund_id":       fund_id,
-            "Fund":          name,
-            "Category":      category,
-            "Qty":           total_qty,
-            "Avg Cost":      avg_cost_gbp,
-            "Cost Basis":    total_cost_gbp,
-            "Current Value": current_value,
-            "Realised":      realised_pnl,
-            "Dividends":     total_dividends,
-            "PnL":           total_pnl,
-            "PnL Pct":       pnl_pct,
-        })
-
-    return pd.DataFrame(results)
-
 
 @app.callback(
     Output('pnl-show-closed', 'data'),
@@ -2009,7 +966,7 @@ def update_pnl(tab, _, show_closed):
 
     gbpusd   = get_gbpusd(df)
     fx_rates = get_fx_rates(df)
-    pnl_df   = calc_pnl(gbpusd, fx_rates)
+    pnl_df   = calc_pnl(df_combined, instruments, gbpusd, fx_rates)
 
     if pnl_df.empty:
         return html.P("No transactions found.", style={"color": "#999"}), ""
@@ -2263,39 +1220,6 @@ def update_pnl(tab, _, show_closed):
     return table, total_label
 
 
-def recalc_portfolio_from_transactions(fund_id):
-    """Recalculate units for a fund from transaction history and update portfolio.json.
-    Only updates the specific fund_id — all other holdings are untouched.
-    """
-    conn = sqlite3.connect(DB_PATH)
-    txns = conn.execute(
-        "SELECT type, quantity FROM transactions WHERE fund_id = ? AND type != 'DIVIDEND' ORDER BY trade_date",
-        (fund_id,)
-    ).fetchall()
-    conn.close()
-
-    total_qty = 0.0
-    for ttype, qty in txns:
-        if ttype == "BUY":
-            total_qty += float(qty)
-        elif ttype == "SELL":
-            total_qty -= float(qty)
-    total_qty = max(total_qty, 0.0)
-
-    # Update portfolio_holdings table directly
-    from datetime import datetime
-    now  = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn = sqlite3.connect(DB_PATH)
-    if total_qty > 0:
-        conn.execute(
-            "INSERT OR REPLACE INTO portfolio_holdings (fund_id, units, updated_at) VALUES (?, ?, ?)",
-            (fund_id, total_qty, now)
-        )
-    else:
-        conn.execute("DELETE FROM portfolio_holdings WHERE fund_id = ?", (fund_id,))
-    conn.commit()
-    conn.close()
-    return total_qty
 
 
 @app.callback(

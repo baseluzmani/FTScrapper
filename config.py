@@ -95,6 +95,7 @@ YAHOO_TICKERS = [
     ("XU030.IS",  "BIST 30",              "Index"),
     ("^BVSP",     "Ibovespa Brazil",      "Index"),
     ("^GSPTSE",   "S&P TSX Canada",       "Index"),
+    ("HPI", "UK Halifax House Price Index", "Index"),
     # Global Equity ETFs
     ("URTH", "MSCI World", "ETF"),
     ("EEM", "MSCI Emerging Markets", "ETF"),
