@@ -88874,3 +88874,1663 @@ Fetching 87 ticker(s)...
   ✓ Alarko Holding                                95.6500
 
 Done. Updated: 87 | Failed: 0
+FT Fund Scraper starting...
+
+==================================================
+Processing: SL Asia Pacific Ex Japan
+Fund ID:    GB0031728438:GBP
+==================================================
+  Latest date in database: 2026-05-01
+  Incremental run: fetching from 2026-05-02 to today
+  Already up to date.
+  No new data to save.
+  Fund name: SL Asia Pacific Ex Japan
+
+==================================================
+Processing: SL Gold
+Fund ID:    GB00B3VNFD68:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B3VNFD68:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 22
+  Saved 0 new rows to database.
+  Fund name: Standard Life Assurance BlackRock Gold and General 4 Pension Fund
+
+==================================================
+Processing: SL China
+Fund ID:    GB00B7Z71453:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B7Z71453:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 22
+  Saved 0 new rows to database.
+  Fund name: Standard Life Assurance SLI China Equities Series 4 Pension Fund
+
+==================================================
+Processing: SL JPM Natural Resources
+Fund ID:    GB00B61JR401:GBP
+==================================================
+  Latest date in database: 2026-05-01
+  Incremental run: fetching from 2026-05-02 to today
+  Already up to date.
+  No new data to save.
+  Fund name: SL JPM Natural Resources
+
+==================================================
+Processing: SL Ishares Pacific
+Fund ID:    GB00B849FB47:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B849FB47:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: iShares Pacific ex Japan Equity Index Fund (UK) D Acc
+
+==================================================
+Processing: SL L&G Global Infrastructure
+Fund ID:    GB00BF0TZK67:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00BF0TZK67:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: Legal & General Global Infrastructure Index Fund Class L Distribution
+
+==================================================
+Processing: HSBC Islamic Global Equity
+Fund ID:    LU2092165666:GBP
+==================================================
+  Latest date in database: 2026-04-29
+  Incremental run: fetching from 2026-04-30 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=LU2092165666:GBP&startDate=30/04/2026&endDate=01/05/2026
+  Total unique rows found: 19
+  Saved 0 new rows to database.
+  Fund name: HSBC Islamic Funds - HSBC Islamic Global Equity Index Fund BC GBP
+
+==================================================
+Processing: SL Macquarie Global Infrastructure Secs
+Fund ID:    GB00B3K5WJ87:GBP
+==================================================
+  Latest date in database: 2026-05-01
+  Incremental run: fetching from 2026-05-02 to today
+  Already up to date.
+  No new data to save.
+  Fund name: SL Macquarie Global Infrastructure Secs
+
+==================================================
+Processing: Robeco Emerging Stars Equities G GBP
+Fund ID:    LU1408526199:GBP
+==================================================
+  Latest date in database: 2026-04-29
+  Incremental run: fetching from 2026-04-30 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=LU1408526199:GBP&startDate=30/04/2026&endDate=01/05/2026
+  Total unique rows found: 18
+  Saved 0 new rows to database.
+  Fund name: Robeco Capital Growth Funds - Robeco Emerging Stars Equities G GBP
+
+==================================================
+Processing: JPMorgan Emerging Markets ESG Equity C
+Fund ID:    GB00BL0DTP33:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00BL0DTP33:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: JPM Emerging Markets ESG Equity Fund C GBP - Net Accumulation
+
+==================================================
+Processing: Schroder Life UK Smaller Companies
+Fund ID:    GB00B0ZGQD71:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B0ZGQD71:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: ReAssure LG Schroder UK Small Comps 25
+
+==================================================
+Processing: Artemis UK Special Situations Fund
+Fund ID:    GB00B2PLJQ03:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B2PLJQ03:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: Artemis UK Special Situations Fund I Acc
+
+==================================================
+Processing: L&G PMC North America Equity Index
+Fund ID:    GB00B3VGBC62:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B3VGBC62:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: L&G PMC North America Equity Index 3 Pen
+
+==================================================
+Processing: L&G PMC Europe Ex UK Equity Index
+Fund ID:    GB00B4YKRJ18:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B4YKRJ18:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: L&G PMC Europe Ex UK Equity Index 3 Pen
+
+==================================================
+Processing: L&G PMC Japan Equity Index
+Fund ID:    GB00B4ZFV486:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B4ZFV486:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: L&G PMC Japan Equity Index 3 Pen
+
+==================================================
+Processing: L&G PMC Asia Pac ex Japan Dev Eq
+Fund ID:    GB00B4WT1Y33:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B4WT1Y33:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: L&G PMC Asia Pac ex Japan Dev Eq Idx 3 Pen
+
+==================================================
+Processing: L&G Future World ESG Optimised UK Index Fund
+Fund ID:    GB00BJH4XW03:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00BJH4XW03:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: Legal & General Future World ESG Tilted & Optimised UK Index Fund L GBP Acc
+
+==================================================
+Processing: Fidelity Funds - Latin America Fund W-Acc-GBP
+Fund ID:    LU1033664027:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=LU1033664027:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 22
+  Saved 0 new rows to database.
+  Fund name: Fidelity Funds - Latin America Fund W-Acc-GBP
+
+==================================================
+Processing: Fid Fil UK HSBC Islamic 0 GBP
+Fund ID:    0P0001EWE2
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=0P0001EWE2&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: Fid Fil UK HSBC Islamic 0 GBP
+
+All done.
+Yahoo Finance Importer
+Processing 87 ticker(s)...
+
+── S&P 500 (^GSPC)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  S&P 500 (^GSPC)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^GSPC from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Russell 2000 (^RUT)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Russell 2000 (^RUT)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^RUT from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Dow Jones (^DJI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Dow Jones (^DJI)                              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^DJI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── NASDAQ Composite (^IXIC)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  NASDAQ Composite (^IXIC)                      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^IXIC from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── VIX Volatility (^VIX)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  VIX Volatility (^VIX)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^VIX from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── FTSE 100 (^FTSE)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  FTSE 100 (^FTSE)                              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^FTSE from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── FTSE 250 (^FTMC)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  FTSE 250 (^FTMC)                              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^FTMC from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── DAX (^GDAXI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  DAX (^GDAXI)                                  | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^GDAXI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── CAC 40 (^FCHI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  CAC 40 (^FCHI)                                | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^FCHI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Euro Stoxx 50 (^STOXX50E)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Euro Stoxx 50 (^STOXX50E)                     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^STOXX50E from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Nikkei 225 (^N225)
+  Deleted 3 recent rows from 2026-04-28 for fresh reimport
+  Nikkei 225 (^N225)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^N225 from 2026-04-28 to 2026-05-01...
+  2 rows fetched | 2 new rows saved | 2026-04-28 → 2026-04-30
+
+── Hang Seng (^HSI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Hang Seng (^HSI)                              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^HSI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── KOSPI (^KS11)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  KOSPI (^KS11)                                 | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^KS11 from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── S&P ASX 200 (^AXJO)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  S&P ASX 200 (^AXJO)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^AXJO from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── BSE Sensex (^BSESN)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  BSE Sensex (^BSESN)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^BSESN from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Shanghai Composite (000001.SS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Shanghai Composite (000001.SS)                | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching 000001.SS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Taiwan Weighted (^TWII)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Taiwan Weighted (^TWII)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^TWII from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Singapore STI (^STI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Singapore STI (^STI)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^STI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Jakarta Composite (^JKSE)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Jakarta Composite (^JKSE)                     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^JKSE from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── NZX 50 (^NZ50)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  NZX 50 (^NZ50)                                | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^NZ50 from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── BIST 30 (XU030.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  BIST 30 (XU030.IS)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching XU030.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Ibovespa Brazil (^BVSP)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Ibovespa Brazil (^BVSP)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^BVSP from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── S&P TSX Canada (^GSPTSE)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  S&P TSX Canada (^GSPTSE)                      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^GSPTSE from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── UK Halifax House Price Index (HPI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  UK Halifax House Price Index (HPI)            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HPI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── MSCI World (URTH)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  MSCI World (URTH)                             | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching URTH from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── MSCI Emerging Markets (EEM)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  MSCI Emerging Markets (EEM)                   | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching EEM from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── FTSE All World (VWRL.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  FTSE All World (VWRL.L)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching VWRL.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Core S&P 500 ETF (CSP1.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Core S&P 500 ETF (CSP1.L)             | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CSP1.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Xtr Nikkei 225 UCITS ETF (XDJP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Xtr Nikkei 225 UCITS ETF (XDJP.L)             | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching XDJP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── HSBC MSCI China UCITS ETF (HMCH.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  HSBC MSCI China UCITS ETF (HMCH.L)            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HMCH.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── HSBC MSCI Canada UCITS ETF (HCAN.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  HSBC MSCI Canada UCITS ETF (HCAN.L)           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HCAN.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Europe Def UETF (DFEU.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Europe Def UETF (DFEU.L)              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching DFEU.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── X AI and Big Data UCITS ETF (XAIX.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  X AI and Big Data UCITS ETF (XAIX.L)          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching XAIX.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares AI Infrastructure ETF (AINF.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares AI Infrastructure ETF (AINF.L)        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching AINF.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares S&P 500 Financials ETF (UIFS.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares S&P 500 Financials ETF (UIFS.L)       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching UIFS.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── FT Nasdaq Cs UCITS ETF (FCBR.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  FT Nasdaq Cs UCITS ETF (FCBR.L)               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching FCBR.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Quantum Computing ETF (QANT.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Quantum Computing ETF (QANT.L)        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching QANT.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Quantum Computing ETF (QWTM.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Quantum Computing ETF (QWTM.L)     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching QWTM.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Future of Defence UCITS ETF (NATP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Future of Defence UCITS ETF (NATP.L)          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NATP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Gold Producers ETF (SPGP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Gold Producers ETF (SPGP.L)           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching SPGP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares MSCI Canada UCITS ETF (CSCA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares MSCI Canada UCITS ETF (CSCA.L)        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CSCA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Digital Entertainment ETF (PLAY.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Digital Entertainment ETF (PLAY.L)    | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching PLAY.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Gold Futures (GC=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Gold Futures (GC=F)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GC=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Silver Futures (SI=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Silver Futures (SI=F)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching SI=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Copper Futures (HG=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Copper Futures (HG=F)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HG=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Wheat Futures (ZW=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Wheat Futures (ZW=F)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ZW=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Crude Oil Futures (CL=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Crude Oil Futures (CL=F)                      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CL=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Natural Gas Futures (NG=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Natural Gas Futures (NG=F)                    | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NG=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Cocoa Futures (CC=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Cocoa Futures (CC=F)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CC=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Brent Crude Futures (BZ=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Brent Crude Futures (BZ=F)                    | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching BZ=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WT Physical Precious Metals ETC (PHPP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WT Physical Precious Metals ETC (PHPP.L)      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching PHPP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Copper ETC (COPB.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Copper ETC (COPB.L)                | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching COPB.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Wheat ETC (WEAP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Wheat ETC (WEAP.L)                 | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching WEAP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Copper Miners ETF (MINE.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Copper Miners ETF (MINE.L)            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching MINE.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Energy Transition ETC (NRGT.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Energy Transition ETC (NRGT.L)     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NRGT.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Natural Gas ETC (NGSP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Natural Gas ETC (NGSP.L)           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NGSP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Cocoa (COCO)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Cocoa (COCO)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching COCO from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Agriculture ETC (AIGA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Agriculture ETC (AIGA.L)           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching AIGA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Physical Gold ETC (IGLN.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Physical Gold ETC (IGLN.L)            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching IGLN.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Physical Silver ETC (ISLN.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Physical Silver ETC (ISLN.L)          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ISLN.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── GBP/USD (GBPUSD=X)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  GBP/USD (GBPUSD=X)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GBPUSD=X from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── GBP/TRY (GBPTRY=X)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  GBP/TRY (GBPTRY=X)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GBPTRY=X from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── USD/CNY (CNY=X)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  USD/CNY (CNY=X)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CNY=X from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Bitcoin GBP (BTC-GBP)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Bitcoin GBP (BTC-GBP)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching BTC-GBP from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Ethereum GBP (ETH-GBP)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Ethereum GBP (ETH-GBP)                        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ETH-GBP from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Alphabet (Google) (GOOG)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Alphabet (Google) (GOOG)                      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GOOG from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Amazon (AMZN)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Amazon (AMZN)                                 | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching AMZN from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── NVIDIA (NVDA)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  NVIDIA (NVDA)                                 | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NVDA from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── ASML Holding (ASML)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  ASML Holding (ASML)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ASML from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Circle Internet Group (CRCL)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Circle Internet Group (CRCL)                  | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CRCL from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Qualcomm (QCOM)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Qualcomm (QCOM)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching QCOM from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Micron Technology (MU)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Micron Technology (MU)                        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching MU from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── JPMorgan Chase (JPM)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  JPMorgan Chase (JPM)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching JPM from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Novo Nordisk (NVO)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Novo Nordisk (NVO)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NVO from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Eli Lilly (LLY)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Eli Lilly (LLY)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching LLY from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── GSK plc (GSK.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  GSK plc (GSK.L)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GSK.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── HSBC Holdings (HSBA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  HSBC Holdings (HSBA.L)                        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HSBA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── GlobalData plc (DATA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  GlobalData plc (DATA.L)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching DATA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Burberry Group (BRBY.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Burberry Group (BRBY.L)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching BRBY.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── QinetiQ Group (QQ.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  QinetiQ Group (QQ.L)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching QQ.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Hilton Food Group (HFG.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Hilton Food Group (HFG.L)                     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HFG.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Coca-Cola HBC (CCH.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Coca-Cola HBC (CCH.L)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CCH.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── BAE Systems (BA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  BAE Systems (BA.L)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching BA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Sabanci Holding (SAHOL.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Sabanci Holding (SAHOL.IS)                    | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching SAHOL.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Petkim (PETKM.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Petkim (PETKM.IS)                             | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching PETKM.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Aselsan (ASELS.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Aselsan (ASELS.IS)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ASELS.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Alarko Holding (ALARK.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Alarko Holding (ALARK.IS)                     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ALARK.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+Done. 260 total new rows saved.
+
+To add a new ticker permanently, add a line to TICKERS:
+  ("TICKER", "Display Name", "Asset Type"),
+Live Price Updater — 2026-05-01
+Fetching 87 ticker(s)...
+
+  ✓ S&P 500                                       7209.0100
+  ✓ Russell 2000                                  2799.9050
+  ✓ Dow Jones                                     49652.1400
+  ✓ NASDAQ Composite                              24892.3120
+  ✓ VIX Volatility                                16.9600
+  ✓ FTSE 100                                      10321.1500
+  ✓ FTSE 250                                      22385.7800
+  ✓ DAX                                           24292.3800
+  ✓ CAC 40                                        8114.8400
+  ✓ Euro Stoxx 50                                 5881.5100
+  ✓ Nikkei 225                                    59513.1200
+  ✓ Hang Seng                                     25776.5300
+  ✓ KOSPI                                         6598.8700
+  ✓ S&P ASX 200                                   8729.8000
+  ✓ BSE Sensex                                    76913.5000
+  ✓ Shanghai Composite                            4112.1590
+  ✓ Taiwan Weighted                               38926.6300
+  ✓ Singapore STI                                 4912.6900
+  ✓ Jakarta Composite                             6956.8040
+  ✓ NZX 50                                        13039.2000
+  ✓ BIST 30                                       16601.1200
+  ✓ Ibovespa Brazil                               187317.6400
+  ✓ S&P TSX Canada                                33964.3300
+  ✓ UK Halifax House Price Index                  16.3500
+  ✓ MSCI World                                    196.5500
+  ✓ MSCI Emerging Markets                         63.9900
+  ✓ FTSE All World                                129.9300
+  ✓ iShares Core S&P 500 ETF                      57042.0660
+  ✓ Xtr Nikkei 225 UCITS ETF                      2878.0000
+  ✓ HSBC MSCI China UCITS ETF                     579.8630
+  ✓ HSBC MSCI Canada UCITS ETF                    2592.0000
+  ✓ iShares Europe Def UETF                       4.6170
+  ✓ X AI and Big Data UCITS ETF                   147.2200
+  ✓ iShares AI Infrastructure ETF                 6.6480
+  ✓ iShares S&P 500 Financials ETF                1133.5000
+  ✓ FT Nasdaq Cs UCITS ETF                        3050.0000
+  ✓ iShares Quantum Computing ETF                 4.2155
+  ✓ WisdomTree Quantum Computing ETF              2650.5000
+  ✓ Future of Defence UCITS ETF                   1417.0000
+  ✓ iShares Gold Producers ETF                    2965.9190
+  ✓ iShares MSCI Canada UCITS ETF                 22285.0000
+  ✓ iShares Digital Entertainment ETF             8.8570
+  ✓ Gold Futures                                  4584.5000
+  ✓ Silver Futures                                74.0050
+  ✓ Copper Futures                                5.9700
+  ✓ Wheat Futures                                 639.7500
+  ✓ Crude Oil Futures                             104.2300
+  ✓ Natural Gas Futures                           2.7950
+  ✓ Cocoa Futures                                 3569.0000
+  ✓ Brent Crude Futures                           110.9600
+  ✓ WT Physical Precious Metals ETC               21500.0000
+  ✓ WisdomTree Copper ETC                         3798.0000
+  ✓ WisdomTree Wheat ETC                          15.3950
+  ✓ iShares Copper Miners ETF                     7.5850
+  ✓ WisdomTree Energy Transition ETC              20.7800
+  ✓ WisdomTree Natural Gas ETC                    380.7750
+  ✓ WisdomTree Cocoa                              65.9900
+  ✓ WisdomTree Agriculture ETC                    6.4775
+  ✓ iShares Physical Gold ETC                     88.7500
+  ✓ iShares Physical Silver ETC                   70.0025
+  ✓ GBP/USD                                       1.3619
+  ✓ GBP/TRY                                       61.5358
+  ✓ USD/CNY                                       6.8268
+  ✓ Bitcoin GBP                                   56899.7800
+  ✓ Ethereum GBP                                  1679.7500
+  ✓ Alphabet (Google)                             381.9400
+  ✓ Amazon                                        265.0600
+  ✓ NVIDIA                                        199.5700
+  ✓ ASML Holding                                  1438.9900
+  ✓ Circle Internet Group                         90.8800
+  ✓ Qualcomm                                      179.5800
+  ✓ Micron Technology                             517.1600
+  ✓ JPMorgan Chase                                313.2300
+  ✓ Novo Nordisk                                  42.2200
+  ✓ Eli Lilly                                     934.6000
+  ✓ GSK plc                                       1904.0000
+  ✓ HSBC Holdings                                 1345.4000
+  ✓ GlobalData plc                                111.3600
+  ✓ Burberry Group                                1154.6000
+  ✓ QinetiQ Group                                 441.1000
+  ✓ Hilton Food Group                             539.0000
+  ✓ Coca-Cola HBC                                 4280.0000
+  ✓ BAE Systems                                   2025.5000
+  ✓ Sabanci Holding                               95.6500
+  ✓ Petkim                                        23.9000
+  ✓ Aselsan                                       420.2500
+  ✓ Alarko Holding                                95.6500
+
+Done. Updated: 87 | Failed: 0
+FT Fund Scraper starting...
+
+==================================================
+Processing: SL Asia Pacific Ex Japan
+Fund ID:    GB0031728438:GBP
+==================================================
+  Latest date in database: 2026-05-01
+  Incremental run: fetching from 2026-05-02 to today
+  Already up to date.
+  No new data to save.
+  Fund name: SL Asia Pacific Ex Japan
+
+==================================================
+Processing: SL Gold
+Fund ID:    GB00B3VNFD68:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B3VNFD68:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 23
+  Saved 1 new rows to database.
+  Fund name: Standard Life Assurance BlackRock Gold and General 4 Pension Fund
+
+==================================================
+Processing: SL China
+Fund ID:    GB00B7Z71453:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B7Z71453:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 23
+  Saved 1 new rows to database.
+  Fund name: Standard Life Assurance SLI China Equities Series 4 Pension Fund
+
+==================================================
+Processing: SL JPM Natural Resources
+Fund ID:    GB00B61JR401:GBP
+==================================================
+  Latest date in database: 2026-05-01
+  Incremental run: fetching from 2026-05-02 to today
+  Already up to date.
+  No new data to save.
+  Fund name: SL JPM Natural Resources
+
+==================================================
+Processing: SL Ishares Pacific
+Fund ID:    GB00B849FB47:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B849FB47:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: iShares Pacific ex Japan Equity Index Fund (UK) D Acc
+
+==================================================
+Processing: SL L&G Global Infrastructure
+Fund ID:    GB00BF0TZK67:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00BF0TZK67:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: Legal & General Global Infrastructure Index Fund Class L Distribution
+
+==================================================
+Processing: HSBC Islamic Global Equity
+Fund ID:    LU2092165666:GBP
+==================================================
+  Latest date in database: 2026-04-29
+  Incremental run: fetching from 2026-04-30 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=LU2092165666:GBP&startDate=30/04/2026&endDate=01/05/2026
+  Total unique rows found: 19
+  Saved 0 new rows to database.
+  Fund name: HSBC Islamic Funds - HSBC Islamic Global Equity Index Fund BC GBP
+
+==================================================
+Processing: SL Macquarie Global Infrastructure Secs
+Fund ID:    GB00B3K5WJ87:GBP
+==================================================
+  Latest date in database: 2026-05-01
+  Incremental run: fetching from 2026-05-02 to today
+  Already up to date.
+  No new data to save.
+  Fund name: SL Macquarie Global Infrastructure Secs
+
+==================================================
+Processing: Robeco Emerging Stars Equities G GBP
+Fund ID:    LU1408526199:GBP
+==================================================
+  Latest date in database: 2026-04-29
+  Incremental run: fetching from 2026-04-30 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=LU1408526199:GBP&startDate=30/04/2026&endDate=01/05/2026
+  Total unique rows found: 18
+  Saved 0 new rows to database.
+  Fund name: Robeco Capital Growth Funds - Robeco Emerging Stars Equities G GBP
+
+==================================================
+Processing: JPMorgan Emerging Markets ESG Equity C
+Fund ID:    GB00BL0DTP33:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00BL0DTP33:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: JPM Emerging Markets ESG Equity Fund C GBP - Net Accumulation
+
+==================================================
+Processing: Schroder Life UK Smaller Companies
+Fund ID:    GB00B0ZGQD71:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B0ZGQD71:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: ReAssure LG Schroder UK Small Comps 25
+
+==================================================
+Processing: Artemis UK Special Situations Fund
+Fund ID:    GB00B2PLJQ03:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B2PLJQ03:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: Artemis UK Special Situations Fund I Acc
+
+==================================================
+Processing: L&G PMC North America Equity Index
+Fund ID:    GB00B3VGBC62:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B3VGBC62:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: L&G PMC North America Equity Index 3 Pen
+
+==================================================
+Processing: L&G PMC Europe Ex UK Equity Index
+Fund ID:    GB00B4YKRJ18:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B4YKRJ18:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: L&G PMC Europe Ex UK Equity Index 3 Pen
+
+==================================================
+Processing: L&G PMC Japan Equity Index
+Fund ID:    GB00B4ZFV486:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B4ZFV486:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: L&G PMC Japan Equity Index 3 Pen
+
+==================================================
+Processing: L&G PMC Asia Pac ex Japan Dev Eq
+Fund ID:    GB00B4WT1Y33:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00B4WT1Y33:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: L&G PMC Asia Pac ex Japan Dev Eq Idx 3 Pen
+
+==================================================
+Processing: L&G Future World ESG Optimised UK Index Fund
+Fund ID:    GB00BJH4XW03:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=GB00BJH4XW03:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: Legal & General Future World ESG Tilted & Optimised UK Index Fund L GBP Acc
+
+==================================================
+Processing: Fidelity Funds - Latin America Fund W-Acc-GBP
+Fund ID:    LU1033664027:GBP
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=LU1033664027:GBP&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 22
+  Saved 0 new rows to database.
+  Fund name: Fidelity Funds - Latin America Fund W-Acc-GBP
+
+==================================================
+Processing: Fid Fil UK HSBC Islamic 0 GBP
+Fund ID:    0P0001EWE2
+==================================================
+  Latest date in database: 2026-04-30
+  Incremental run: fetching from 2026-05-01 to today
+  Fetching: https://markets.ft.com/data/funds/tearsheet/historical?s=0P0001EWE2&startDate=01/05/2026&endDate=01/05/2026
+  Total unique rows found: 20
+  Saved 0 new rows to database.
+  Fund name: Fid Fil UK HSBC Islamic 0 GBP
+
+All done.
+Yahoo Finance Importer
+Processing 87 ticker(s)...
+
+── S&P 500 (^GSPC)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  S&P 500 (^GSPC)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^GSPC from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Russell 2000 (^RUT)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Russell 2000 (^RUT)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^RUT from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Dow Jones (^DJI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Dow Jones (^DJI)                              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^DJI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── NASDAQ Composite (^IXIC)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  NASDAQ Composite (^IXIC)                      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^IXIC from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── VIX Volatility (^VIX)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  VIX Volatility (^VIX)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^VIX from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── FTSE 100 (^FTSE)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  FTSE 100 (^FTSE)                              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^FTSE from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── FTSE 250 (^FTMC)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  FTSE 250 (^FTMC)                              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^FTMC from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── DAX (^GDAXI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  DAX (^GDAXI)                                  | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^GDAXI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── CAC 40 (^FCHI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  CAC 40 (^FCHI)                                | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^FCHI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Euro Stoxx 50 (^STOXX50E)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Euro Stoxx 50 (^STOXX50E)                     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^STOXX50E from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Nikkei 225 (^N225)
+  Deleted 3 recent rows from 2026-04-28 for fresh reimport
+  Nikkei 225 (^N225)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^N225 from 2026-04-28 to 2026-05-01...
+  2 rows fetched | 2 new rows saved | 2026-04-28 → 2026-04-30
+
+── Hang Seng (^HSI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Hang Seng (^HSI)                              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^HSI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── KOSPI (^KS11)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  KOSPI (^KS11)                                 | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^KS11 from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── S&P ASX 200 (^AXJO)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  S&P ASX 200 (^AXJO)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^AXJO from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── BSE Sensex (^BSESN)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  BSE Sensex (^BSESN)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^BSESN from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Shanghai Composite (000001.SS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Shanghai Composite (000001.SS)                | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching 000001.SS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Taiwan Weighted (^TWII)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Taiwan Weighted (^TWII)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^TWII from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Singapore STI (^STI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Singapore STI (^STI)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^STI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Jakarta Composite (^JKSE)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Jakarta Composite (^JKSE)                     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^JKSE from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── NZX 50 (^NZ50)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  NZX 50 (^NZ50)                                | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^NZ50 from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── BIST 30 (XU030.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  BIST 30 (XU030.IS)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching XU030.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Ibovespa Brazil (^BVSP)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Ibovespa Brazil (^BVSP)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^BVSP from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── S&P TSX Canada (^GSPTSE)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  S&P TSX Canada (^GSPTSE)                      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ^GSPTSE from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── UK Halifax House Price Index (HPI)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  UK Halifax House Price Index (HPI)            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HPI from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── MSCI World (URTH)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  MSCI World (URTH)                             | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching URTH from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── MSCI Emerging Markets (EEM)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  MSCI Emerging Markets (EEM)                   | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching EEM from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── FTSE All World (VWRL.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  FTSE All World (VWRL.L)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching VWRL.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Core S&P 500 ETF (CSP1.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Core S&P 500 ETF (CSP1.L)             | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CSP1.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Xtr Nikkei 225 UCITS ETF (XDJP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Xtr Nikkei 225 UCITS ETF (XDJP.L)             | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching XDJP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── HSBC MSCI China UCITS ETF (HMCH.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  HSBC MSCI China UCITS ETF (HMCH.L)            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HMCH.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── HSBC MSCI Canada UCITS ETF (HCAN.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  HSBC MSCI Canada UCITS ETF (HCAN.L)           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HCAN.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Europe Def UETF (DFEU.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Europe Def UETF (DFEU.L)              | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching DFEU.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── X AI and Big Data UCITS ETF (XAIX.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  X AI and Big Data UCITS ETF (XAIX.L)          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching XAIX.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares AI Infrastructure ETF (AINF.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares AI Infrastructure ETF (AINF.L)        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching AINF.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares S&P 500 Financials ETF (UIFS.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares S&P 500 Financials ETF (UIFS.L)       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching UIFS.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── FT Nasdaq Cs UCITS ETF (FCBR.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  FT Nasdaq Cs UCITS ETF (FCBR.L)               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching FCBR.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Quantum Computing ETF (QANT.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Quantum Computing ETF (QANT.L)        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching QANT.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Quantum Computing ETF (QWTM.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Quantum Computing ETF (QWTM.L)     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching QWTM.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Future of Defence UCITS ETF (NATP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Future of Defence UCITS ETF (NATP.L)          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NATP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Gold Producers ETF (SPGP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Gold Producers ETF (SPGP.L)           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching SPGP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares MSCI Canada UCITS ETF (CSCA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares MSCI Canada UCITS ETF (CSCA.L)        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CSCA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Digital Entertainment ETF (PLAY.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Digital Entertainment ETF (PLAY.L)    | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching PLAY.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Gold Futures (GC=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Gold Futures (GC=F)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GC=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Silver Futures (SI=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Silver Futures (SI=F)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching SI=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Copper Futures (HG=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Copper Futures (HG=F)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HG=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Wheat Futures (ZW=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Wheat Futures (ZW=F)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ZW=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Crude Oil Futures (CL=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Crude Oil Futures (CL=F)                      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CL=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Natural Gas Futures (NG=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Natural Gas Futures (NG=F)                    | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NG=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Cocoa Futures (CC=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Cocoa Futures (CC=F)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CC=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Brent Crude Futures (BZ=F)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Brent Crude Futures (BZ=F)                    | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching BZ=F from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WT Physical Precious Metals ETC (PHPP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WT Physical Precious Metals ETC (PHPP.L)      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching PHPP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Copper ETC (COPB.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Copper ETC (COPB.L)                | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching COPB.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Wheat ETC (WEAP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Wheat ETC (WEAP.L)                 | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching WEAP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Copper Miners ETF (MINE.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Copper Miners ETF (MINE.L)            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching MINE.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Energy Transition ETC (NRGT.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Energy Transition ETC (NRGT.L)     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NRGT.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Natural Gas ETC (NGSP.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Natural Gas ETC (NGSP.L)           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NGSP.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Cocoa (COCO)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Cocoa (COCO)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching COCO from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── WisdomTree Agriculture ETC (AIGA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  WisdomTree Agriculture ETC (AIGA.L)           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching AIGA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Physical Gold ETC (IGLN.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Physical Gold ETC (IGLN.L)            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching IGLN.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── iShares Physical Silver ETC (ISLN.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  iShares Physical Silver ETC (ISLN.L)          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ISLN.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── GBP/USD (GBPUSD=X)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  GBP/USD (GBPUSD=X)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GBPUSD=X from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── GBP/TRY (GBPTRY=X)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  GBP/TRY (GBPTRY=X)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GBPTRY=X from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── USD/CNY (CNY=X)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  USD/CNY (CNY=X)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CNY=X from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Bitcoin GBP (BTC-GBP)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Bitcoin GBP (BTC-GBP)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching BTC-GBP from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Ethereum GBP (ETH-GBP)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Ethereum GBP (ETH-GBP)                        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ETH-GBP from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Alphabet (Google) (GOOG)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Alphabet (Google) (GOOG)                      | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GOOG from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Amazon (AMZN)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Amazon (AMZN)                                 | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching AMZN from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── NVIDIA (NVDA)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  NVIDIA (NVDA)                                 | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NVDA from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── ASML Holding (ASML)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  ASML Holding (ASML)                           | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ASML from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Circle Internet Group (CRCL)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Circle Internet Group (CRCL)                  | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CRCL from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Qualcomm (QCOM)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Qualcomm (QCOM)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching QCOM from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Micron Technology (MU)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Micron Technology (MU)                        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching MU from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── JPMorgan Chase (JPM)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  JPMorgan Chase (JPM)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching JPM from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Novo Nordisk (NVO)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Novo Nordisk (NVO)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching NVO from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Eli Lilly (LLY)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Eli Lilly (LLY)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching LLY from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── GSK plc (GSK.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  GSK plc (GSK.L)                               | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching GSK.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── HSBC Holdings (HSBA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  HSBC Holdings (HSBA.L)                        | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HSBA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── GlobalData plc (DATA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  GlobalData plc (DATA.L)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching DATA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Burberry Group (BRBY.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Burberry Group (BRBY.L)                       | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching BRBY.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── QinetiQ Group (QQ.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  QinetiQ Group (QQ.L)                          | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching QQ.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Hilton Food Group (HFG.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Hilton Food Group (HFG.L)                     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching HFG.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Coca-Cola HBC (CCH.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Coca-Cola HBC (CCH.L)                         | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching CCH.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── BAE Systems (BA.L)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  BAE Systems (BA.L)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching BA.L from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Sabanci Holding (SAHOL.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Sabanci Holding (SAHOL.IS)                    | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching SAHOL.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Petkim (PETKM.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Petkim (PETKM.IS)                             | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching PETKM.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Aselsan (ASELS.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Aselsan (ASELS.IS)                            | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ASELS.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+── Alarko Holding (ALARK.IS)
+  Deleted 4 recent rows from 2026-04-28 for fresh reimport
+  Alarko Holding (ALARK.IS)                     | latest in DB: 2026-05-01 | fetching from 2026-04-28
+  Fetching ALARK.IS from 2026-04-28 to 2026-05-01...
+  3 rows fetched | 3 new rows saved | 2026-04-28 → 2026-04-30
+
+Done. 260 total new rows saved.
+
+To add a new ticker permanently, add a line to TICKERS:
+  ("TICKER", "Display Name", "Asset Type"),
+Live Price Updater — 2026-05-01
+Fetching 87 ticker(s)...
+
+  ✓ S&P 500                                       7209.0100
+  ✓ Russell 2000                                  2799.9050
+  ✓ Dow Jones                                     49652.1400
+  ✓ NASDAQ Composite                              24892.3120
+  ✓ VIX Volatility                                16.9000
+  ✓ FTSE 100                                      10314.7700
+  ✓ FTSE 250                                      22404.2400
+  ✓ DAX                                           24292.3800
+  ✓ CAC 40                                        8114.8400
+  ✓ Euro Stoxx 50                                 5881.5100
+  ✓ Nikkei 225                                    59513.1200
+  ✓ Hang Seng                                     25776.5300
+  ✓ KOSPI                                         6598.8700
+  ✓ S&P ASX 200                                   8729.8000
+  ✓ BSE Sensex                                    76913.5000
+  ✓ Shanghai Composite                            4112.1590
+  ✓ Taiwan Weighted                               38926.6300
+  ✓ Singapore STI                                 4912.6900
+  ✓ Jakarta Composite                             6956.8040
+  ✓ NZX 50                                        13039.2000
+  ✓ BIST 30                                       16601.1200
+  ✓ Ibovespa Brazil                               187317.6400
+  ✓ S&P TSX Canada                                33964.3300
+  ✓ UK Halifax House Price Index                  16.3500
+  ✓ MSCI World                                    196.5500
+  ✓ MSCI Emerging Markets                         63.9900
+  ✓ FTSE All World                                129.8900
+  ✓ iShares Core S&P 500 ETF                      57005.3500
+  ✓ Xtr Nikkei 225 UCITS ETF                      2873.2270
+  ✓ HSBC MSCI China UCITS ETF                     580.5000
+  ✓ HSBC MSCI Canada UCITS ETF                    2596.0000
+  ✓ iShares Europe Def UETF                       4.6260
+  ✓ X AI and Big Data UCITS ETF                   147.2200
+  ✓ iShares AI Infrastructure ETF                 6.6401
+  ✓ iShares S&P 500 Financials ETF                1133.0000
+  ✓ FT Nasdaq Cs UCITS ETF                        3046.8000
+  ✓ iShares Quantum Computing ETF                 4.2124
+  ✓ WisdomTree Quantum Computing ETF              2667.5000
+  ✓ Future of Defence UCITS ETF                   1418.2000
+  ✓ iShares Gold Producers ETF                    2975.0000
+  ✓ iShares MSCI Canada UCITS ETF                 22291.0000
+  ✓ iShares Digital Entertainment ETF             8.8570
+  ✓ Gold Futures                                  4604.7000
+  ✓ Silver Futures                                74.7150
+  ✓ Copper Futures                                5.9825
+  ✓ Wheat Futures                                 641.0000
+  ✓ Crude Oil Futures                             103.6800
+  ✓ Natural Gas Futures                           2.7910
+  ✓ Cocoa Futures                                 3548.0000
+  ✓ Brent Crude Futures                           110.8000
+  ✓ WT Physical Precious Metals ETC               21878.3050
+  ✓ WisdomTree Copper ETC                         3789.9860
+  ✓ WisdomTree Wheat ETC                          15.3950
+  ✓ iShares Copper Miners ETF                     7.6120
+  ✓ WisdomTree Energy Transition ETC              20.7800
+  ✓ WisdomTree Natural Gas ETC                    380.5000
+  ✓ WisdomTree Cocoa                              65.9900
+  ✓ WisdomTree Agriculture ETC                    6.5000
+  ✓ iShares Physical Gold ETC                     89.1025
+  ✓ iShares Physical Silver ETC                   70.8850
+  ✓ GBP/USD                                       1.3633
+  ✓ GBP/TRY                                       61.5900
+  ✓ USD/CNY                                       6.8268
+  ✓ Bitcoin GBP                                   57288.9900
+  ✓ Ethereum GBP                                  1692.8400
+  ✓ Alphabet (Google)                             381.9400
+  ✓ Amazon                                        265.0600
+  ✓ NVIDIA                                        199.5700
+  ✓ ASML Holding                                  1438.9900
+  ✓ Circle Internet Group                         90.8800
+  ✓ Qualcomm                                      179.5800
+  ✓ Micron Technology                             517.1600
+  ✓ JPMorgan Chase                                313.2300
+  ✓ Novo Nordisk                                  42.2200
+  ✓ Eli Lilly                                     934.6000
+  ✓ GSK plc                                       1898.5000
+  ✓ HSBC Holdings                                 1342.4000
+  ✓ GlobalData plc                                110.4000
+  ✓ Burberry Group                                1162.4000
+  ✓ QinetiQ Group                                 441.7000
+  ✓ Hilton Food Group                             540.4350
+  ✓ Coca-Cola HBC                                 4292.4070
+  ✓ BAE Systems                                   2025.5000
+  ✓ Sabanci Holding                               95.6500
+  ✓ Petkim                                        23.9000
+  ✓ Aselsan                                       420.2500
+  ✓ Alarko Holding                                95.6500
+
+Done. Updated: 87 | Failed: 0
