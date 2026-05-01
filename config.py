@@ -33,6 +33,8 @@ FUNDS = [
 # How many days of history to pull on the very first run
 FIRST_RUN_DAYS = 365
 
+CHART_CATEGORY_THRESHOLD = 0.02  # categories below 2% of total grouped as 'Other' in the history trend chart
+
 # --- Dashboard Settings ---
 DEFAULT_SINCE_DATE = '2026-03-01'  # Default date for returns calculations
 
@@ -147,6 +149,7 @@ YAHOO_TICKERS = [
     ("AMZN", "Amazon", "Stock"),
     ("NVDA", "NVIDIA", "Stock"),
     ("ASML", "ASML Holding", "Stock"),
+    ("CRCL", "Circle Internet Group", "Stock"),
     ("QCOM", "Qualcomm", "Stock"),
     ("MU", "Micron Technology", "Stock"),
     ("JPM", "JPMorgan Chase", "Stock"),

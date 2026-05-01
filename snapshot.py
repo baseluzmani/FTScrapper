@@ -6,6 +6,7 @@
 import sqlite3
 import os
 from datetime import datetime
+from datetime import timedelta
 
 DB_PATH = 'data/funds.db'
 
@@ -193,6 +194,27 @@ def main():
     )
     conn.commit()
     conn.close()
+
+    # Save month-end total to networth_history
+    from datetime import date
+    import calendar
+    today = date.today()
+    # First working day of month = first day that is Mon-Fri
+    first = date(today.year, today.month, 1)
+    offset = 0
+    while (first + timedelta(days=offset)).weekday() >= 5:
+        offset += 1
+    first_working_day = first + timedelta(days=offset)
+    if today == first_working_day:
+        conn2 = sqlite3.connect(DB_PATH)
+        conn2.execute(
+            "INSERT OR REPLACE INTO networth_history (date, total_gbp, source) VALUES (?, ?, 'snapshot')",
+            (today.strftime('%Y-%m-%d'), round(total, 2))
+        )
+        conn2.commit()
+        conn2.close()
+        print(f"Month-end saved to networth_history: £{total:,.0f}")
+
 
     print(f"Snapshot saved: {snap_date} (id={snap_id})")
     print(f"Total portfolio value: £{total:,.2f}")

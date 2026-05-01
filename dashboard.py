@@ -3,8 +3,8 @@
 # Run with: python3 dashboard.py
 # Then open: http://localhost:8050
 
-import config
 import dash
+import config
 from dash import html, dcc, Input, Output, State, ALL, ctx
 import plotly.graph_objects as go
 import pandas as pd
@@ -49,6 +49,7 @@ app.index_string = (
     '  .sum-fund { width: 40% !important; max-width: 40% !important; }'
     '  .sum-num  { width: 1% !important; white-space: nowrap !important; }'
     '  .portfolio-cat-panel { width: 100% !important; margin-left: 0 !important; }'
+    '  .portfolio-history-card { display: none !important; }'
     '}'
     '@media (min-width: 769px) {'
     '  .sum-fund { width: 1% !important; white-space: nowrap !important; }'
@@ -149,6 +150,8 @@ app.layout = html.Div([
             dcc.Tab(label='Summary',      value='tab-summary',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
             dcc.Tab(label='Transactions', value='tab-transactions',
+                    style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
+            dcc.Tab(label='Calendar',     value='tab-calendar',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
         ],
         style={'backgroundColor': '#fff', 'borderBottom': '1px solid #eee', 'marginBottom': '0'}
@@ -344,6 +347,22 @@ app.layout = html.Div([
             html.Div(id='txn-status', style={'fontSize': '12px', 'color': '#2E75B6', 'marginTop': '8px', 'fontWeight': '600'}),
         ], style=CARD),
 
+        # ── NETWORTH HISTORY CHART (desktop only)
+        html.Div([
+            html.P('NET WORTH HISTORY', style={**SECTION_TITLE, 'marginBottom': '4px'}),
+            dcc.Graph(id='networth-history-chart', config={'displayModeBar': False}),
+        ], style={**CARD, 'display': 'none'}, id='networth-history-card',
+           className='portfolio-history-card'),
+
+        # ── PORTFOLIO VALUE CHART (desktop only)
+        html.Div([
+            html.P('PORTFOLIO VALUE BY CATEGORY', style={**SECTION_TITLE, 'marginBottom': '4px'}),
+            html.Span('Stacked area — categories below threshold grouped as Other',
+                      style={'fontSize': '11px', 'color': '#aaa'}),
+            dcc.Graph(id='portfolio-history-chart', config={'displayModeBar': False}),
+        ], style={**CARD, 'display': 'none'}, id='portfolio-history-card',
+           className='portfolio-history-card'),
+
     ], id='portfolio-tab-content', style={
         'display': 'none', 'padding': '12px 16px 16px 16px',
         'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
@@ -454,6 +473,158 @@ app.layout = html.Div([
         'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
     }),
 
+    # ── CALENDAR TAB
+    html.Div([
+        # Filters
+        html.Div([
+            html.P('FINANCIAL CALENDAR', style={**SECTION_TITLE, 'marginBottom': '8px'}),
+            html.Div([
+                html.Div([
+                    html.Label('Horizon:', style={'fontSize': '11px', 'color': '#666',
+                                                  'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='cal-filter-horizon',
+                                 options=[
+                                     {'label': 'Next 30 days', 'value': 30},
+                                     {'label': 'Next 60 days', 'value': 60},
+                                     {'label': 'Next 90 days', 'value': 90},
+                                     {'label': 'All future',   'value': 365},
+                                 ],
+                                 value=30, clearable=False,
+                                 style={'fontSize': '12px', 'width': '140px'}),
+                ], style={'marginRight': '16px'}),
+                html.Div([
+                    html.Label('Category:', style={'fontSize': '11px', 'color': '#666',
+                                                    'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='cal-filter-category',
+                                 options=[{'label': 'All', 'value': 'ALL'}] +
+                                         [{'label': c, 'value': c} for c in
+                                          ['Income','Pension','Dividend','Credit Card',
+                                           'Mortgage','Utility','Subscription','Investment','Tax','Other']],
+                                 value='ALL', clearable=False,
+                                 style={'fontSize': '12px', 'width': '140px'}),
+                ], style={'marginRight': '16px'}),
+                html.Div([
+                    html.Label('Status:', style={'fontSize': '11px', 'color': '#666',
+                                                  'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='cal-filter-status',
+                                 options=[
+                                     {'label': 'All',       'value': 'ALL'},
+                                     {'label': 'Pending',   'value': 'pending'},
+                                     {'label': 'Due',       'value': 'due'},
+                                     {'label': 'Completed', 'value': 'completed'},
+                                 ],
+                                 value='ALL', clearable=False,
+                                 style={'fontSize': '12px', 'width': '120px'}),
+                ]),
+            ], style={'display': 'flex', 'alignItems': 'flex-end',
+                      'flexWrap': 'wrap', 'gap': '8px'}),
+        ], style=CARD),
+
+        # Upcoming list
+        html.Div(id='calendar-list-div', style={'overflowX': 'auto'}),
+
+        # Add event form
+        html.Div([
+            html.P('ADD EVENT', style=SECTION_TITLE),
+            html.Div([
+                html.Div([
+                    html.Label('Type:', style={'fontSize': '11px', 'color': '#666',
+                                               'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='cal-add-frequency',
+                                 options=[
+                                     {'label': 'One-off',   'value': 'once'},
+                                     {'label': 'Weekly',    'value': 'weekly'},
+                                     {'label': 'Monthly',   'value': 'monthly'},
+                                     {'label': 'Quarterly', 'value': 'quarterly'},
+                                     {'label': 'Annual',    'value': 'annual'},
+                                 ],
+                                 value='monthly', clearable=False,
+                                 style={'fontSize': '12px', 'width': '110px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label('Name:', style={'fontSize': '11px', 'color': '#666',
+                                               'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='cal-add-name', type='text', placeholder='e.g. Barclays CC',
+                              style={'padding': '7px', 'fontSize': '12px',
+                                     'border': '1px solid #ccc', 'borderRadius': '4px',
+                                     'width': '150px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label('Category:', style={'fontSize': '11px', 'color': '#666',
+                                                    'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='cal-add-category',
+                                 options=[{'label': c, 'value': c} for c in
+                                          ['Income','Pension','Dividend','Credit Card',
+                                           'Mortgage','Utility','Subscription','Investment','Tax','Other']],
+                                 placeholder='Category...',
+                                 style={'fontSize': '12px', 'width': '130px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div(id='cal-date-inputs', style={'display': 'flex',
+                          'alignItems': 'flex-end', 'gap': '12px'}),
+                html.Div([
+                    html.Label('Amount:', style={'fontSize': '11px', 'color': '#666',
+                                                  'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='cal-add-amount', type='number', placeholder='e.g. 1500',
+                              step=0.01,
+                              style={'padding': '7px', 'fontSize': '12px',
+                                     'border': '1px solid #ccc', 'borderRadius': '4px',
+                                     'width': '110px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label('CCY:', style={'fontSize': '11px', 'color': '#666',
+                                               'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Dropdown(id='cal-add-currency',
+                                 options=[{'label': 'GBP', 'value': 'GBP'},
+                                          {'label': 'USD', 'value': 'USD'},
+                                          {'label': 'TRY', 'value': 'TRY'}],
+                                 value='GBP', clearable=False,
+                                 style={'fontSize': '12px', 'width': '80px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label('Account:', style={'fontSize': '11px', 'color': '#666',
+                                                   'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='cal-add-account', type='text', placeholder='e.g. Barclays',
+                              style={'padding': '7px', 'fontSize': '12px',
+                                     'border': '1px solid #ccc', 'borderRadius': '4px',
+                                     'width': '110px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label('Notes:', style={'fontSize': '11px', 'color': '#666',
+                                                 'marginBottom': '4px', 'display': 'block'}),
+                    dcc.Input(id='cal-add-notes', type='text', placeholder='Optional...',
+                              style={'padding': '7px', 'fontSize': '12px',
+                                     'border': '1px solid #ccc', 'borderRadius': '4px',
+                                     'width': '120px'}),
+                ], style={'marginRight': '12px'}),
+                html.Div([
+                    html.Label(' ', style={'fontSize': '11px', 'display': 'block',
+                                           'marginBottom': '4px'}),
+                    html.Button('Add', id='cal-add-btn', n_clicks=0,
+                                style={'backgroundColor': '#1a7a1a', 'color': 'white',
+                                       'border': 'none', 'borderRadius': '4px',
+                                       'padding': '7px 16px', 'fontSize': '12px',
+                                       'cursor': 'pointer'}),
+                ]),
+            ], style={'display': 'flex', 'alignItems': 'flex-end',
+                      'flexWrap': 'wrap', 'gap': '4px'}),
+            html.Div(id='cal-status', style={'fontSize': '12px', 'color': '#2E75B6',
+                                              'marginTop': '8px', 'fontWeight': '600'}),
+        ], style=CARD),
+
+        # Manage Events
+        html.Div([
+            html.P('MANAGE EVENTS', style=SECTION_TITLE),
+            html.Div(id='cal-events-list-div'),
+            html.Div(id='cal-manage-status',
+                     style={'fontSize': '12px', 'color': '#2E75B6',
+                            'marginTop': '8px', 'fontWeight': '600'}),
+        ], style=CARD),
+
+    ], id='calendar-tab-content', style={
+        'display': 'none', 'padding': '12px 16px 16px 16px',
+        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
+    }),
+
     # Shared stores
     dcc.Store(id='sort-state-holdings', data={'col': 'YTD', 'asc': False}),
     dcc.Store(id='sort-state-market',   data={'col': 'YTD', 'asc': False}),
@@ -480,6 +651,7 @@ app.layout = html.Div([
     Output('pnl-tab-content',          'style'),
     Output('summary-tab-content',      'style'),
     Output('transactions-tab-content', 'style'),
+    Output('calendar-tab-content',     'style'),
     Output('data-date-label',          'children'),
     Input('main-tabs',         'value'),
     Input('db-reload-trigger', 'data'),
@@ -499,14 +671,16 @@ def switch_tab(tab, reload_trigger, n_intervals):
     hide = {**base, 'display': 'none'}
 
     if tab == 'tab-portfolio':
-        return show, hide, hide, hide, date_label
+        return show, hide, hide, hide, hide, date_label
     elif tab == 'tab-pnl':
-        return hide, show, hide, hide, date_label
+        return hide, show, hide, hide, hide, date_label
     elif tab == 'tab-summary':
-        return hide, hide, show, hide, date_label
+        return hide, hide, show, hide, hide, date_label
     elif tab == 'tab-transactions':
-        return hide, hide, hide, show, date_label
-    return show, hide, hide, hide, date_label
+        return hide, hide, hide, show, hide, date_label
+    elif tab == 'tab-calendar':
+        return hide, hide, hide, hide, show, date_label
+    return show, hide, hide, hide, hide, date_label
 
 
 # ── 5. PORTFOLIO CALLBACKS ─────────────────────────────────────
@@ -1703,6 +1877,753 @@ def update_summary(tab, snapshot_date, reload):
     return table
 
 
+
+
+
+
+# ── PORTFOLIO HISTORY CHART ────────────────────────────────────
+
+@app.callback(
+    Output('networth-history-chart', 'figure'),
+    Output('networth-history-card',  'style'),
+    Input('portfolio-reload', 'data'),
+    Input('main-tabs',        'value'),
+)
+def update_networth_chart(reload, tab):
+    """Single line chart from networth_history table."""
+    card_hide = {**CARD, 'display': 'none'}
+    card_show = {**CARD, 'display': 'block'}
+
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        'SELECT date, total_gbp FROM networth_history ORDER BY date'
+    ).fetchall()
+    conn.close()
+
+    if not rows:
+        return go.Figure(), card_hide
+
+    import pandas as pd
+    df_nw = pd.DataFrame(rows, columns=['date', 'value'])
+    df_nw['date'] = pd.to_datetime(df_nw['date'])
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df_nw['date'], y=df_nw['value'],
+        mode='lines+markers',
+        name='Net Worth',
+        line=dict(color='#1a3a5c', width=2),
+        marker=dict(size=4, color='#1a3a5c'),
+        hovertemplate='%{x|%b %Y}: £%{y:,.0f}<extra></extra>',
+    ))
+
+    fig.update_layout(
+        height=320,
+        hovermode='x unified',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        showlegend=False,
+        margin=dict(l=50, r=20, t=20, b=40),
+        yaxis=dict(
+            showgrid=True, gridcolor='#f0f0f0',
+            tickvals=[v for v in range(0, 2000001, 250000)],
+            ticktext=[f'£{v//1000}k' for v in range(0, 2000001, 250000)]),
+        xaxis=dict(showgrid=False, tickfont=dict(size=10)),
+    )
+    return fig, card_show
+
+@app.callback(
+    Output('portfolio-history-chart', 'figure'),
+    Output('portfolio-history-card',  'style'),
+    Input('portfolio-reload', 'data'),
+    Input('main-tabs',        'value'),
+)
+def update_portfolio_history_chart(reload, tab):
+    """Stacked area chart of portfolio value by category over snapshot history."""
+    threshold = getattr(config, 'CHART_CATEGORY_THRESHOLD', 0.02)
+
+    conn  = sqlite3.connect(DB_PATH)
+    rows  = conn.execute("""
+        SELECT ps.snap_date, sc.category, sc.value_gbp
+        FROM snapshot_categories sc
+        JOIN portfolio_snapshots ps ON sc.snapshot_id = ps.id
+        ORDER BY ps.snap_date
+    """).fetchall()
+    conn.close()
+
+    card_style = {**CARD, 'display': 'none'}
+
+    if not rows or len(set(r[0] for r in rows)) < 2:
+        return go.Figure(), card_style
+
+    # Build dataframe
+    df_snap = pd.DataFrame(rows, columns=['date', 'category', 'value_gbp'])
+    df_snap['date'] = pd.to_datetime(df_snap['date'])
+
+    # Pivot to wide format
+    pivot = df_snap.pivot_table(index='date', columns='category',
+                                values='value_gbp', aggfunc='sum').fillna(0)
+
+    # Get latest snapshot totals to determine threshold
+    latest_total = pivot.iloc[-1].sum()
+    if latest_total == 0:
+        return go.Figure(), card_style
+
+    # Separate categories above/below threshold
+    latest_shares = pivot.iloc[-1] / latest_total
+    above = [c for c in pivot.columns if latest_shares.get(c, 0) >= threshold]
+    below = [c for c in pivot.columns if latest_shares.get(c, 0) < threshold]
+
+    # Aggregate small categories into Other
+    if below:
+        pivot['Other'] = pivot[below].sum(axis=1)
+    cols = sorted(above, key=lambda c: pivot[c].iloc[-1], reverse=True)
+    if below:
+        cols = cols + ['Other']
+
+    # Colour palette
+    colours = [
+        '#2E75B6', '#1a7a1a', '#c0392b', '#e67e22', '#8e44ad',
+        '#16a085', '#2c3e50', '#d35400', '#27ae60', '#2980b9',
+        '#f39c12', '#7f8c8d', '#c0392b', '#1abc9c', '#e74c3c',
+        '#95a5a6',
+    ]
+
+    fig = go.Figure()
+    for i, cat in enumerate(reversed(cols)):
+        colour = colours[i % len(colours)]
+        fig.add_trace(go.Scatter(
+            x=pivot.index,
+            y=pivot[cat],
+            name=cat,
+            mode='lines',
+            stackgroup='one',
+            line=dict(width=0.5, color=colour),
+            fillcolor=colour,
+            hovertemplate=f'<b>{cat}</b><br>%{{x|%d %b %Y}}: £%{{y:,.0f}}<extra></extra>',
+        ))
+
+    fig.update_layout(
+        height=420,
+        hovermode='x unified',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        legend=dict(
+            orientation='h', y=-0.25, x=0,
+            font=dict(size=10), traceorder='reversed',
+        ),
+        margin=dict(l=50, r=20, t=30, b=100),
+        yaxis=dict(
+            tickformat=',.0f', tickprefix='£', ticksuffix='k',
+            showgrid=True, gridcolor='#f0f0f0',
+            tickvals=[v for v in range(0, 2000001, 250000)],
+            ticktext=[f'£{v//1000}k' for v in range(0, 2000001, 250000)]),
+        xaxis=dict(
+            showgrid=False, tickfont=dict(size=10),
+        ),
+    )
+
+    card_style_show = {**CARD, 'display': 'block'}
+    return fig, card_style_show
+
+
+
+
+# ── CALENDAR CALLBACKS ────────────────────────────────────────
+
+CATEGORY_SIGNS = {
+    'Income': 1, 'Pension': 1, 'Dividend': 1,
+    'Credit Card': -1, 'Mortgage': -1, 'Utility': -1, 'Subscription': -1,
+    'Investment': -1, 'Tax': -1, 'Other': 0,
+}
+
+CATEGORY_COLOURS = {
+    'Income':      '#1a7a1a',
+    'Pension':     '#1a7a1a',
+    'Dividend':    '#1a7a1a',
+    'Credit Card': '#c0392b',
+    'Mortgage':    '#c0392b',
+    'Utility':     '#e67e22',
+    'Subscription':'#8e44ad',
+    'Investment':  '#2E75B6',
+    'Tax':         '#c0392b',
+    'Other':       '#666',
+}
+
+
+def generate_instances(horizon_days=30):
+    """Generate calendar instances for next horizon_days from today.
+    Skips instances that already exist (preserves actual amounts/status).
+    """
+    from datetime import date, timedelta
+    today = date.today()
+    end   = today + timedelta(days=horizon_days)
+
+    conn   = sqlite3.connect(DB_PATH)
+    events = conn.execute(
+        "SELECT id, name, frequency, day_of_month, month, amount, currency FROM calendar_events WHERE active = 1"
+    ).fetchall()
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    for eid, name, freq, dom, mon, amount, currency in events:
+        dates_to_create = []
+
+        if freq == 'once':
+            # One-off: due_date stored in day_of_month=day, month=month, and year in notes
+            # Actually for one-off we store the full date separately — skip generation
+            continue
+
+        elif freq == 'weekly':
+            d = today
+            while d <= end:
+                if d.weekday() == (dom or 0) % 7:
+                    dates_to_create.append(d)
+                d += timedelta(days=1)
+
+        elif freq == 'monthly':
+            # Generate for current and next months within horizon
+            for month_offset in range(3):
+                try:
+                    import calendar as cal_mod
+                    year  = today.year + (today.month + month_offset - 1) // 12
+                    month = (today.month + month_offset - 1) % 12 + 1
+                    day   = min(dom or 1, cal_mod.monthrange(year, month)[1])
+                    d     = date(year, month, day)
+                    if today <= d <= end:
+                        dates_to_create.append(d)
+                except ValueError:
+                    pass
+
+        elif freq == 'quarterly':
+            for month_offset in range(12):
+                try:
+                    import calendar as cal_mod
+                    year  = today.year + (today.month + month_offset - 1) // 12
+                    month = (today.month + month_offset - 1) % 12 + 1
+                    if (month - (mon or 1)) % 3 != 0:
+                        continue
+                    day = min(dom or 1, cal_mod.monthrange(year, month)[1])
+                    d   = date(year, month, day)
+                    if today <= d <= end:
+                        dates_to_create.append(d)
+                except ValueError:
+                    pass
+
+        elif freq == 'annual':
+            for year_offset in range(2):
+                try:
+                    import calendar as cal_mod
+                    year = today.year + year_offset
+                    m    = mon or 1
+                    day  = min(dom or 1, cal_mod.monthrange(year, m)[1])
+                    d    = date(year, m, day)
+                    if today <= d <= end:
+                        dates_to_create.append(d)
+                except ValueError:
+                    pass
+
+        for d in dates_to_create:
+            date_str = d.strftime('%Y-%m-%d')
+            # Status: due if within 7 days
+            status = 'due' if (d - today).days <= 7 else 'pending'
+            conn.execute("""
+                INSERT OR IGNORE INTO calendar_instances
+                    (event_id, due_date, amount, currency, status, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (eid, date_str, amount, currency or 'GBP', status, now))
+
+        # Update status of existing pending instances to 'due' if within 7 days
+        conn.execute("""
+            UPDATE calendar_instances
+            SET status = 'due', updated_at = ?
+            WHERE event_id = ? AND status = 'pending'
+              AND julianday(due_date) - julianday('now') <= 7
+              AND julianday(due_date) >= julianday('now')
+        """, (now, eid))
+
+    conn.commit()
+    conn.close()
+
+
+@app.callback(
+    Output('cal-date-inputs', 'children'),
+    Input('cal-add-frequency', 'value'),
+)
+def update_date_inputs(frequency):
+    """Show appropriate date inputs based on frequency type."""
+    if frequency == 'once':
+        return [html.Div([
+            html.Label('Date:', style={'fontSize': '11px', 'color': '#666',
+                                       'marginBottom': '4px', 'display': 'block'}),
+            dcc.DatePickerSingle(id='cal-add-date', display_format='DD MMM YYYY',
+                                 date=datetime.today().strftime('%Y-%m-%d')),
+        ])]
+
+    elif frequency == 'weekly':
+        return [html.Div([
+            html.Label('Day of Week:', style={'fontSize': '11px', 'color': '#666',
+                                               'marginBottom': '4px', 'display': 'block'}),
+            dcc.Dropdown(id='cal-add-dom',
+                         options=[{'label': d, 'value': i} for i, d in enumerate(
+                             ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'])],
+                         value=0, clearable=False,
+                         style={'fontSize': '12px', 'width': '120px'}),
+        ])]
+
+    elif frequency == 'monthly':
+        return [html.Div([
+            html.Label('Day of Month:', style={'fontSize': '11px', 'color': '#666',
+                                                'marginBottom': '4px', 'display': 'block'}),
+            dcc.Dropdown(id='cal-add-dom',
+                         options=[{'label': str(d), 'value': d} for d in range(1, 32)],
+                         value=1, clearable=False,
+                         style={'fontSize': '12px', 'width': '80px'}),
+        ])]
+
+    elif frequency in ('quarterly', 'annual'):
+        return [
+            html.Div([
+                html.Label('Month:', style={'fontSize': '11px', 'color': '#666',
+                                             'marginBottom': '4px', 'display': 'block'}),
+                dcc.Dropdown(id='cal-add-month',
+                             options=[{'label': m, 'value': i+1} for i, m in enumerate(
+                                 ['Jan','Feb','Mar','Apr','May','Jun',
+                                  'Jul','Aug','Sep','Oct','Nov','Dec'])],
+                             value=1, clearable=False,
+                             style={'fontSize': '12px', 'width': '80px'}),
+            ], style={'marginRight': '8px'}),
+            html.Div([
+                html.Label('Day:', style={'fontSize': '11px', 'color': '#666',
+                                           'marginBottom': '4px', 'display': 'block'}),
+                dcc.Dropdown(id='cal-add-dom',
+                             options=[{'label': str(d), 'value': d} for d in range(1, 32)],
+                             value=1, clearable=False,
+                             style={'fontSize': '12px', 'width': '75px'}),
+            ]),
+        ]
+    return []
+
+
+@app.callback(
+    Output('calendar-list-div', 'children'),
+    Output('cal-status',        'children'),
+    Input('main-tabs',           'value'),
+    Input('cal-filter-horizon',  'value'),
+    Input('cal-filter-category', 'value'),
+    Input('cal-filter-status',   'value'),
+    Input('cal-add-btn',                                'n_clicks'),
+    Input({'type': 'cal-complete-btn',     'index': ALL}, 'n_clicks'),
+    Input({'type': 'cal-delete-inst-btn',  'index': ALL}, 'n_clicks'),
+    State('cal-add-frequency',   'value'),
+    State('cal-add-name',        'value'),
+    State('cal-add-category',    'value'),
+    State('cal-add-amount',      'value'),
+    State('cal-add-currency',    'value'),
+    State('cal-add-account',     'value'),
+    State('cal-add-notes',       'value'),
+    State('cal-date-inputs',     'children'),
+    prevent_initial_call=False,
+)
+def update_calendar(tab, horizon, cat_filter, status_filter, add_clicks,
+                    complete_clicks, delete_inst_clicks,
+                    frequency, name, category, amount, currency, account, notes,
+                    date_inputs):
+    if tab != 'tab-calendar':
+        return html.Div(), ''
+
+    from datetime import date, timedelta
+    today  = date.today()
+    status_msg = ''
+    triggered  = ctx.triggered_id
+
+    # ── Handle complete button ──
+    if isinstance(triggered, dict) and triggered.get('type') == 'cal-complete-btn':
+        inst_id = triggered['index']
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("UPDATE calendar_instances SET status='completed', updated_at=? WHERE id=?",
+                     (now, inst_id))
+        conn.commit(); conn.close()
+        status_msg = '✓ Marked as completed'
+
+    # ── Handle delete instance button ──
+    elif isinstance(triggered, dict) and triggered.get('type') == 'cal-delete-inst-btn':
+        inst_id = triggered['index']
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute('DELETE FROM calendar_instances WHERE id = ?', (inst_id,))
+        conn.commit(); conn.close()
+        status_msg = '✓ Instance deleted'
+
+    # ── Handle Add button ──
+    elif triggered == 'cal-add-btn' and add_clicks:
+        if not name or not category:
+            return html.Div(), 'Please enter name and category.'
+
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        conn = sqlite3.connect(DB_PATH)
+
+        if frequency == 'once':
+            # Extract date from date_inputs
+            due_date = today.strftime('%Y-%m-%d')
+            try:
+                if date_inputs and isinstance(date_inputs, list):
+                    for el in date_inputs:
+                        if isinstance(el, dict):
+                            props = el.get('props', {})
+                            if 'date' in props:
+                                due_date = props['date'][:10]
+            except Exception:
+                pass
+            # Store as event + immediate instance
+            conn.execute("""
+                INSERT INTO calendar_events
+                    (name, category, frequency, day_of_month, month, amount, currency, account, notes, created_at)
+                VALUES (?, ?, 'once', NULL, NULL, ?, ?, ?, ?, ?)
+            """, (name, category, amount, currency or 'GBP', account, notes, now))
+            eid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            status = 'due' if (date.fromisoformat(due_date) - today).days <= 7 else 'pending'
+            conn.execute("""
+                INSERT OR IGNORE INTO calendar_instances
+                    (event_id, due_date, amount, currency, status, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (eid, due_date, amount, currency or 'GBP', status, now))
+        else:
+            # Extract dom and month from date_inputs
+            dom = 1
+            mon = 1
+            try:
+                if date_inputs and isinstance(date_inputs, list):
+                    for el in date_inputs:
+                        if isinstance(el, dict):
+                            props = el.get('props', {})
+                            children = props.get('children', [])
+                            if isinstance(children, list):
+                                for child in children:
+                                    if isinstance(child, dict):
+                                        cprops = child.get('props', {})
+                                        if cprops.get('id') == 'cal-add-dom' and 'value' in cprops:
+                                            dom = cprops['value']
+                                        if cprops.get('id') == 'cal-add-month' and 'value' in cprops:
+                                            mon = cprops['value']
+            except Exception:
+                pass
+            conn.execute("""
+                INSERT INTO calendar_events
+                    (name, category, frequency, day_of_month, month, amount, currency, account, notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (name, category, frequency, dom, mon, amount, currency or 'GBP', account, notes, now))
+
+        conn.commit()
+        conn.close()
+        status_msg = f'✓ Added {name}'
+
+    # ── Generate instances ──
+    generate_instances(horizon or 30)
+
+    # ── Load instances ──
+    conn  = sqlite3.connect(DB_PATH)
+    end   = (today + timedelta(days=horizon or 30)).strftime('%Y-%m-%d')
+    query = """
+        SELECT ci.id, ci.due_date, ce.name, ce.category, ce.frequency,
+               ci.amount, ci.currency, ce.account, ci.status, ci.notes
+        FROM calendar_instances ci
+        JOIN calendar_events ce ON ci.event_id = ce.id
+        WHERE ci.due_date >= ? AND ci.due_date <= ?
+          AND ce.active = 1
+    """
+    params = [today.strftime('%Y-%m-%d'), end]
+    if cat_filter and cat_filter != 'ALL':
+        query  += " AND ce.category = ?"
+        params.append(cat_filter)
+    if status_filter and status_filter != 'ALL':
+        query  += " AND ci.status = ?"
+        params.append(status_filter)
+    query += " ORDER BY ci.due_date, ce.name"
+
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+
+    if not rows:
+        return html.P("No upcoming events in this period.",
+                      style={'color': '#999', 'fontSize': '12px', 'padding': '12px'}), status_msg
+
+    # ── Build table ──
+    header = html.Tr([
+        html.Th(c, style={
+            'backgroundColor': '#1a3a5c', 'color': 'white',
+            'padding': '6px 10px', 'fontSize': '11px', 'fontWeight': '600',
+            'textAlign': 'left' if i < 3 else 'right', 'whiteSpace': 'nowrap',
+        }) for i, c in enumerate(['Date', 'Name', 'Category', 'Type', 'Account',
+                                   'Amount', 'CCY', 'Status', 'Notes', ''])
+    ])
+
+    # Get latest FX rates for GBP conversion
+    cal_fx = get_fx_rates(df)
+
+    def to_gbp_amount(amount, currency):
+        if not amount:
+            return 0.0
+        curr = currency or 'GBP'
+        if curr == 'GBP':
+            return float(amount)
+        elif curr == 'USD':
+            return float(amount) / cal_fx.get('USD', 1.26)
+        elif curr == 'TRY':
+            return float(amount) / cal_fx.get('TRY', 43.0)
+        return float(amount)
+
+    table_rows  = []
+    total_in    = 0.0
+    total_out   = 0.0
+
+    for inst_id, due_date, name, category, frequency, amount, curr, account, status, inst_notes in rows:
+        sign    = CATEGORY_SIGNS.get(category, 0)
+        cat_col = CATEGORY_COLOURS.get(category, '#666')
+        sym     = {'GBP': '£', 'USD': '$', 'TRY': '₺'}.get(curr or 'GBP', '')
+        # Native currency display
+        native  = (amount or 0) * sign if sign != 0 else (amount or 0)
+        # GBP converted amount
+        gbp_amt = to_gbp_amount(amount, curr)
+        signed  = gbp_amt * sign if sign != 0 else gbp_amt
+        # Show native if non-GBP, with GBP equivalent in brackets
+        if curr and curr != 'GBP' and amount:
+            signed_str = f"{sym}{abs(native):,.0f} (£{abs(signed):,.0f})"
+        else:
+            signed_str = f"£{abs(signed):+,.0f}" if amount else '—'
+        if amount and sign < 0:
+            signed_str = '-' + signed_str.lstrip('-').lstrip('+')
+        elif amount and sign > 0:
+            signed_str = '+' + signed_str.lstrip('-').lstrip('+')
+
+        # Row background based on status
+        days_away = (date.fromisoformat(due_date) - today).days
+        if status == 'completed':
+            row_bg = '#f8fff8'
+        elif status == 'due' or days_away <= 7:
+            row_bg = '#fff8f0'
+        else:
+            row_bg = 'transparent'
+
+        status_badge_color = {
+            'completed': '#1a7a1a',
+            'due':       '#e67e22',
+            'pending':   '#2E75B6',
+        }.get(status, '#666')
+
+        freq_label = {
+            'once': 'One-off', 'weekly': 'Weekly', 'monthly': 'Monthly',
+            'quarterly': 'Quarterly', 'annual': 'Annual',
+        }.get(frequency, frequency)
+
+        amount_str = f"{sym}{abs(amount):,.0f}" if amount else '—'
+        signed_str = f"{signed:+,.0f}" if amount else '—'
+        amount_color = '#1a7a1a' if sign >= 0 else '#c0392b'
+
+        # Format date nicely
+        dt = date.fromisoformat(due_date)
+        date_display = dt.strftime('%d %b %Y')
+        if days_away == 0:
+            date_display += ' ⬅ TODAY'
+        elif days_away == 1:
+            date_display += ' (tomorrow)'
+
+        table_rows.append(html.Tr([
+            html.Td(date_display, style={
+                'padding': '5px 10px', 'fontSize': '11px', 'color': '#555',
+                'whiteSpace': 'nowrap', 'fontWeight': '600' if days_away <= 1 else 'normal'}),
+            html.Td(name, style={
+                'padding': '5px 10px', 'fontSize': '12px', 'color': '#1a3a5c',
+                'whiteSpace': 'nowrap'}),
+            html.Td(category, style={
+                'padding': '5px 10px', 'fontSize': '11px', 'color': cat_col,
+                'fontWeight': '600', 'whiteSpace': 'nowrap'}),
+            html.Td(freq_label, style={
+                'padding': '5px 10px', 'fontSize': '10px', 'color': '#888',
+                'textAlign': 'right', 'whiteSpace': 'nowrap'}),
+            html.Td(account or '—', style={
+                'padding': '5px 10px', 'fontSize': '11px', 'color': '#666',
+                'textAlign': 'right', 'whiteSpace': 'nowrap'}),
+            html.Td(signed_str, style={
+                'padding': '5px 10px', 'fontSize': '12px', 'textAlign': 'right',
+                'fontFamily': 'monospace', 'fontWeight': '600', 'color': amount_color,
+                'whiteSpace': 'nowrap'}),
+            html.Td(curr or 'GBP', style={
+                'padding': '5px 10px', 'fontSize': '11px', 'textAlign': 'right',
+                'color': '#888', 'whiteSpace': 'nowrap'}),
+            html.Td(
+                html.Span(status.upper(), style={
+                    'backgroundColor': status_badge_color, 'color': 'white',
+                    'borderRadius': '3px', 'padding': '2px 6px',
+                    'fontSize': '10px', 'fontWeight': '600',
+                }),
+                style={'padding': '5px 10px', 'textAlign': 'right'}),
+            html.Td(inst_notes or '—', style={
+                'padding': '5px 10px', 'fontSize': '11px', 'color': '#888',
+                'whiteSpace': 'nowrap'}),
+            html.Td([
+                html.Button('✓', id={'type': 'cal-complete-btn', 'index': inst_id},
+                            n_clicks=0, title='Mark completed',
+                            style={'backgroundColor': '#1a7a1a', 'color': 'white',
+                                   'border': 'none', 'borderRadius': '3px',
+                                   'padding': '2px 6px', 'fontSize': '11px',
+                                   'cursor': 'pointer', 'marginRight': '4px'}),
+                html.Button('✕', id={'type': 'cal-delete-inst-btn', 'index': inst_id},
+                            n_clicks=0, title='Delete this instance',
+                            style={'backgroundColor': '#c0392b', 'color': 'white',
+                                   'border': 'none', 'borderRadius': '3px',
+                                   'padding': '2px 6px', 'fontSize': '11px',
+                                   'cursor': 'pointer'}),
+            ], style={'padding': '4px 8px', 'textAlign': 'right', 'whiteSpace': 'nowrap'}),
+        ], style={'borderBottom': '1px solid #f0f3f7', 'backgroundColor': row_bg}))
+
+        if sign > 0 and amount:
+            total_in  += gbp_amt
+        elif sign < 0 and amount:
+            total_out += gbp_amt
+
+    # Total row
+    net = total_in - total_out
+    net_color = '#1a7a1a' if net >= 0 else '#c0392b'
+    table_rows.append(html.Tr([
+        html.Td('TOTAL', colSpan=5, style={
+            'padding': '7px 10px', 'fontSize': '12px', 'fontWeight': '700',
+            'color': '#1a3a5c', 'borderTop': '2px solid #1a3a5c'}),
+        html.Td(f"in: £+{total_in:,.0f}  out: £-{total_out:,.0f}  net: £{net:+,.0f}",
+                style={'padding': '7px 10px', 'fontSize': '11px', 'textAlign': 'right',
+                       'fontFamily': 'monospace', 'fontWeight': '700', 'color': net_color,
+                       'borderTop': '2px solid #1a3a5c', 'whiteSpace': 'nowrap'}),
+        html.Td('', colSpan=3, style={'borderTop': '2px solid #1a3a5c'}),
+    ]))
+
+    table = html.Div(
+        html.Table([html.Thead(header), html.Tbody(table_rows)],
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        style={**CARD, 'overflowX': 'auto', 'padding': '0'}
+    )
+    return table, status_msg
+
+
+
+
+@app.callback(
+    Output('cal-events-list-div',  'children'),
+    Output('cal-manage-status',    'children'),
+    Input('main-tabs',             'value'),
+    Input('cal-add-btn',           'n_clicks'),
+    Input('cal-status',            'children'),
+    Input({'type': 'cal-delete-event-btn', 'index': ALL}, 'n_clicks'),
+    prevent_initial_call=False,
+)
+def update_manage_events(tab, add_clicks, cal_status, delete_clicks):
+    """Render the manage events section with delete buttons."""
+    if tab != 'tab-calendar':
+        return html.Div(), ''
+
+    manage_status = ''
+    triggered = ctx.triggered_id
+
+    # Handle delete event + all instances
+    if isinstance(triggered, dict) and triggered.get('type') == 'cal-delete-event-btn':
+        eid = triggered['index']
+        conn = sqlite3.connect(DB_PATH)
+        name_row = conn.execute("SELECT name FROM calendar_events WHERE id = ?", (eid,)).fetchone()
+        conn.execute("DELETE FROM calendar_instances WHERE event_id = ?", (eid,))
+        conn.execute("DELETE FROM calendar_events WHERE id = ?", (eid,))
+        conn.commit(); conn.close()
+        manage_status = f"✓ Deleted event and all instances: {name_row[0] if name_row else ''}"
+
+    # Load all events
+    conn  = sqlite3.connect(DB_PATH)
+    rows  = conn.execute("""
+        SELECT id, name, category, frequency, day_of_month, month,
+               amount, currency, account, notes, active
+        FROM calendar_events
+        ORDER BY category, name
+    """).fetchall()
+    conn.close()
+
+    if not rows:
+        return html.P("No events defined yet.", style={'color': '#999', 'fontSize': '12px'}), manage_status
+
+    freq_labels = {
+        'once': 'One-off', 'weekly': 'Weekly', 'monthly': 'Monthly',
+        'quarterly': 'Quarterly', 'annual': 'Annual',
+    }
+    month_names = ['','Jan','Feb','Mar','Apr','May','Jun',
+                   'Jul','Aug','Sep','Oct','Nov','Dec']
+
+    header = html.Tr([
+        html.Th(c, style={
+            'backgroundColor': '#2c3e50', 'color': 'white',
+            'padding': '5px 8px', 'fontSize': '11px', 'fontWeight': '600',
+            'textAlign': 'left' if i == 0 else 'right', 'whiteSpace': 'nowrap',
+        }) for i, c in enumerate(['Name', 'Category', 'Frequency', 'Schedule',
+                                   'Amount', 'CCY', 'Account', ''])
+    ])
+
+    table_rows = []
+    for eid, name, category, frequency, dom, mon, amount, currency, account, notes, active in rows:
+        cat_col = CATEGORY_COLOURS.get(category, '#666')
+        sign    = CATEGORY_SIGNS.get(category, 0)
+        sym     = {'GBP': '£', 'USD': '$', 'TRY': '₺'}.get(currency or 'GBP', '')
+        signed  = (amount or 0) * sign if sign != 0 else (amount or 0)
+        amt_str = f"{signed:+,.0f}" if amount else '—'
+        amt_col = '#1a7a1a' if sign >= 0 else '#c0392b'
+
+        # Schedule description
+        if frequency == 'once':
+            schedule = 'One time'
+        elif frequency == 'monthly':
+            schedule = f"Day {dom}" if dom else '—'
+        elif frequency == 'weekly':
+            days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+            schedule = days[dom] if dom is not None and 0 <= dom <= 6 else '—'
+        elif frequency == 'quarterly':
+            schedule = f"{month_names[mon or 1]} day {dom}"
+        elif frequency == 'annual':
+            schedule = f"{month_names[mon or 1]} {dom}"
+        else:
+            schedule = '—'
+
+        row_bg = '#f8f8f8' if not active else 'transparent'
+
+        table_rows.append(html.Tr([
+            html.Td(name, style={
+                'padding': '4px 8px', 'fontSize': '12px', 'color': '#1a3a5c',
+                'whiteSpace': 'nowrap'}),
+            html.Td(category, style={
+                'padding': '4px 8px', 'fontSize': '11px', 'color': cat_col,
+                'fontWeight': '600', 'textAlign': 'right', 'whiteSpace': 'nowrap'}),
+            html.Td(freq_labels.get(frequency, frequency), style={
+                'padding': '4px 8px', 'fontSize': '11px', 'color': '#888',
+                'textAlign': 'right', 'whiteSpace': 'nowrap'}),
+            html.Td(schedule, style={
+                'padding': '4px 8px', 'fontSize': '11px', 'color': '#555',
+                'textAlign': 'right', 'whiteSpace': 'nowrap'}),
+            html.Td(f"{sym}{amt_str}", style={
+                'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                'fontFamily': 'monospace', 'color': amt_col, 'whiteSpace': 'nowrap'}),
+            html.Td(currency or 'GBP', style={
+                'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                'color': '#888', 'whiteSpace': 'nowrap'}),
+            html.Td(account or '—', style={
+                'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                'color': '#666', 'whiteSpace': 'nowrap'}),
+            html.Td(
+                html.Button('✕ Delete', id={'type': 'cal-delete-event-btn', 'index': eid},
+                            n_clicks=0,
+                            style={'backgroundColor': '#c0392b', 'color': 'white',
+                                   'border': 'none', 'borderRadius': '3px',
+                                   'padding': '3px 8px', 'fontSize': '10px',
+                                   'cursor': 'pointer', 'whiteSpace': 'nowrap'}),
+                style={'padding': '4px 8px', 'textAlign': 'right'}),
+        ], style={'borderBottom': '1px solid #f0f3f7', 'backgroundColor': row_bg}))
+
+    return html.Div(
+        html.Table([html.Thead(header), html.Tbody(table_rows)],
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        style={'overflowX': 'auto'}
+    ), manage_status
 
 
 # ── TRANSACTIONS CALLBACKS ────────────────────────────────────
