@@ -55,6 +55,14 @@ def main():
         except Exception as e:
             print(f"  ERROR processing {fund['name']}: {e}")
 
+    # Rebuild composite and calculated prices from fresh data
+    print("\nBuilding composite prices...")
+    try:
+        import build_composite_prices
+        build_composite_prices.main()
+    except Exception as e:
+        print(f"  ERROR building composites: {e}")
+
     # Close the database connection when all funds are done
     conn.close()
     print("\nAll done.")

@@ -194,6 +194,14 @@ def main():
             print(f"  ERROR: {e}")
         print()
 
+    # Rebuild composite and calculated prices from fresh data
+    print(f"\nBuilding composite prices...")
+    try:
+        import build_composite_prices
+        build_composite_prices.main()
+    except Exception as e:
+        print(f"  ERROR building composites: {e}")    
+
     conn.close()
     print(f"Done. {total_saved} total new rows saved.")
     print(f"\nTo add a new ticker permanently, add a line to TICKERS:")
