@@ -278,6 +278,7 @@ app.layout = html.Div([
 
     # Shared stores
 
+
     # ── EXPENDITURE TAB
     html.Div([
 
@@ -294,10 +295,10 @@ app.layout = html.Div([
                         style=SUB_TAB_STYLE, selected_style=SUB_TAB_SELECTED),
             ],
             style={"backgroundColor": "#fff", "borderBottom": "1px solid #eee",
-                    "marginBottom": "12px"}
+                   "marginBottom": "12px"}
         ),
 
-        # Shared filters (shown on all sub-tabs)
+        # Shared filters
         html.Div([
             html.Div([
                 html.Div([
@@ -316,15 +317,17 @@ app.layout = html.Div([
                 ], style={"marginRight": "16px"}),
                 html.Div([
                     html.Label("Category:", style={"fontSize": "11px", "color": "#666",
-                                                    "marginBottom": "4px", "display": "block"}),
+                                                   "marginBottom": "4px", "display": "block"}),
                     dcc.Dropdown(id="exp-filter-category",
                                  options=[{"label": c, "value": c} for c in EXP_CATEGORIES],
+                                 value=[c for c in EXP_CATEGORIES
+                                        if c not in ("Investment", "Income", "Transfer")],
                                  multi=True, placeholder="All categories...",
                                  style={"fontSize": "12px", "minWidth": "200px"}),
                 ], style={"marginRight": "16px"}),
                 html.Div([
                     html.Label("Account:", style={"fontSize": "11px", "color": "#666",
-                                                   "marginBottom": "4px", "display": "block"}),
+                                                  "marginBottom": "4px", "display": "block"}),
                     dcc.Dropdown(id="exp-filter-source",
                                  options=[{"label": s, "value": s} for s in SOURCES],
                                  multi=True, placeholder="All accounts...",
@@ -332,7 +335,7 @@ app.layout = html.Div([
                 ], style={"marginRight": "16px"}),
                 html.Div([
                     html.Label(" ", style={"fontSize": "11px", "display": "block",
-                                           "marginBottom": "4px"}),
+                                          "marginBottom": "4px"}),
                     html.Button("Import CSVs", id="exp-import-btn", n_clicks=0,
                                 style={"backgroundColor": ACCENT, "color": "white",
                                        "border": "none", "borderRadius": "4px",
@@ -340,52 +343,152 @@ app.layout = html.Div([
                                        "cursor": "pointer"}),
                 ]),
             ], style={"display": "flex", "alignItems": "flex-end",
-                       "flexWrap": "wrap", "gap": "8px"}),
+                      "flexWrap": "wrap", "gap": "8px"}),
             html.Div(id="exp-import-status",
                      style={"fontSize": "12px", "color": ACCENT,
-                             "marginTop": "8px", "fontWeight": "600"}),
+                            "marginTop": "8px", "fontWeight": "600"}),
         ], style=CARD),
 
-        # Sub-tab content areas
-        html.Div(id="exp-overview-div",      style={"display": "block"}),
-        html.Div(id="exp-transactions-div",  style={"display": "none"}),
-        html.Div(id="exp-review-div",        style={"display": "none"}),
-        html.Div(id="exp-rules-div", style={"display": "none"}),
-        # Rules add form — static so inputs always exist
+        # Sub-tab content
+        html.Div(id="exp-overview-div",     style={"display": "block"}),
+        html.Div(id="exp-transactions-div", style={"display": "none"}),
+        html.Div(id="exp-review-div",       style={"display": "none"}),
+        html.Div(id="exp-rules-div",        style={"display": "none"}),
+
+        # ── Edit Panel — always in layout, shown when a txn is selected ──
         html.Div([
+            html.P("EDIT TRANSACTION", style={**SECTION_TITLE, "marginBottom": "8px"}),
+            html.Div(id="exp-edit-desc",
+                     style={"fontSize": "12px", "color": "#555",
+                            "marginBottom": "12px", "fontStyle": "italic"}),
             html.Div([
-                dcc.Input(id="exp-rule-pattern",     type="text", placeholder="e.g. TESCO",
-                          style={"display": "none"}),
-                dcc.Input(id="exp-rule-subcategory", type="text",
-                          style={"display": "none"}),
-                dcc.Input(id="exp-rule-priority",    type="number", value=50,
-                          style={"display": "none"}),
-                dcc.Dropdown(id="exp-rule-matchtype", options=[], value="contains",
-                             style={"display": "none"}),
-                dcc.Dropdown(id="exp-rule-category",  options=[],
-                             style={"display": "none"}),
-                html.Button("", id="exp-rule-add-btn", n_clicks=0,
-                            style={"display": "none"}),
-            ]),
-        ], style={"display": "none"}),
+                html.Div([
+                    html.Label("Category:", style={"fontSize": "11px", "color": "#666",
+                                                   "marginBottom": "4px", "display": "block"}),
+                    dcc.Dropdown(id="exp-edit-cat",
+                                 options=[{"label": c, "value": c} for c in EXP_CATEGORIES],
+                                 clearable=False,
+                                 style={"fontSize": "12px", "minWidth": "160px"}),
+                ], style={"marginRight": "16px"}),
+                html.Div([
+                    html.Label("Subcategory:", style={"fontSize": "11px", "color": "#666",
+                                                      "marginBottom": "4px", "display": "block"}),
+                    dcc.Input(id="exp-edit-sub", type="text",
+                              placeholder="subcategory...",
+                              style={"padding": "7px", "fontSize": "12px",
+                                     "border": "1px solid #ccc", "borderRadius": "4px",
+                                     "width": "150px"}),
+                ], style={"marginRight": "16px"}),
+                html.Div([
+                    html.Label("Status:", style={"fontSize": "11px", "color": "#666",
+                                                 "marginBottom": "4px", "display": "block"}),
+                    dcc.Dropdown(id="exp-edit-status",
+                                 options=[
+                                     {"label": "Confirmed",    "value": "confirmed"},
+                                     {"label": "Needs Review", "value": "needs_review"},
+                                     {"label": "Internal",     "value": "internal"},
+                                 ],
+                                 clearable=False,
+                                 style={"fontSize": "12px", "width": "140px"}),
+                ], style={"marginRight": "16px"}),
+                html.Div([
+                    html.Label("Notes:", style={"fontSize": "11px", "color": "#666",
+                                                "marginBottom": "4px", "display": "block"}),
+                    dcc.Input(id="exp-edit-notes", type="text",
+                              placeholder="optional notes...",
+                              style={"padding": "7px", "fontSize": "12px",
+                                     "border": "1px solid #ccc", "borderRadius": "4px",
+                                     "width": "180px"}),
+                ], style={"marginRight": "16px"}),
+                html.Div([
+                    html.Label(" ", style={"fontSize": "11px", "display": "block",
+                                          "marginBottom": "4px"}),
+                    html.Button("Save", id="exp-save-btn", n_clicks=0,
+                                style={"backgroundColor": ACCENT, "color": "white",
+                                       "border": "none", "borderRadius": "4px",
+                                       "padding": "7px 14px", "fontSize": "12px",
+                                       "cursor": "pointer", "marginRight": "6px"}),
+                    html.Button("Cancel", id="exp-cancel-btn", n_clicks=0,
+                                style={"backgroundColor": "#aaa", "color": "white",
+                                       "border": "none", "borderRadius": "4px",
+                                       "padding": "7px 14px", "fontSize": "12px",
+                                       "cursor": "pointer"}),
+                ]),
+            ], style={"display": "flex", "alignItems": "flex-end",
+                      "flexWrap": "wrap", "gap": "8px"}),
+            html.Div(id="exp-edit-status-msg",
+                     style={"fontSize": "12px", "color": ACCENT,
+                            "marginTop": "8px", "fontWeight": "600"}),
+        ], id="exp-edit-panel", style={"display": "none", **CARD,
+                                        "borderLeft": f"4px solid {ACCENT}"}),
 
-        dcc.Store(id="exp-reload",           data=0),
-        dcc.Store(id="exp-collapsed-cats",   data=[]),
-
-        # Hidden inputs so Dash doesn't complain about missing IDs
+        # ── Rules form — always in layout ──
         html.Div([
-            dcc.Input(id="exp-rule-pattern",     type="text", value=""),
-            dcc.Input(id="exp-rule-subcategory", type="text", value=""),
-            dcc.Input(id="exp-rule-priority",    type="number", value=50),
-            dcc.Dropdown(id="exp-rule-matchtype", options=[
-                {"label": "Contains",    "value": "contains"},
-                {"label": "Starts with", "value": "starts_with"},
-                {"label": "Ends with",   "value": "ends_with"}],
-                value="contains"),
-            dcc.Dropdown(id="exp-rule-category",
-                         options=[{"label": c, "value": c} for c in EXP_CATEGORIES]),
-            html.Button("Add Rule", id="exp-rule-add-btn", n_clicks=0),
-        ], style={"display": "none"}),
+            html.P("ADD RULE", style={**SECTION_TITLE, "marginBottom": "8px"}),
+            html.Div([
+                html.Div([
+                    html.Label("Pattern:", style={"fontSize": "11px", "color": "#666",
+                                                  "marginBottom": "4px", "display": "block"}),
+                    dcc.Input(id="exp-rule-pattern", type="text",
+                              placeholder="e.g. TESCO",
+                              style={"padding": "7px", "fontSize": "12px",
+                                     "border": "1px solid #ccc", "borderRadius": "4px",
+                                     "width": "120px"}),
+                ], style={"marginRight": "12px"}),
+                html.Div([
+                    html.Label("Match:", style={"fontSize": "11px", "color": "#666",
+                                                "marginBottom": "4px", "display": "block"}),
+                    dcc.Dropdown(id="exp-rule-matchtype",
+                                 options=[{"label": "Contains",    "value": "contains"},
+                                          {"label": "Starts with", "value": "starts_with"},
+                                          {"label": "Ends with",   "value": "ends_with"}],
+                                 value="contains", clearable=False,
+                                 style={"fontSize": "12px", "width": "120px"}),
+                ], style={"marginRight": "12px"}),
+                html.Div([
+                    html.Label("Category:", style={"fontSize": "11px", "color": "#666",
+                                                   "marginBottom": "4px", "display": "block"}),
+                    dcc.Dropdown(id="exp-rule-category",
+                                 options=[{"label": c, "value": c} for c in EXP_CATEGORIES],
+                                 placeholder="Category...",
+                                 style={"fontSize": "12px", "width": "140px"}),
+                ], style={"marginRight": "12px"}),
+                html.Div([
+                    html.Label("Subcategory:", style={"fontSize": "11px", "color": "#666",
+                                                      "marginBottom": "4px", "display": "block"}),
+                    dcc.Input(id="exp-rule-subcategory", type="text",
+                              placeholder="Optional",
+                              style={"padding": "7px", "fontSize": "12px",
+                                     "border": "1px solid #ccc", "borderRadius": "4px",
+                                     "width": "110px"}),
+                ], style={"marginRight": "12px"}),
+                html.Div([
+                    html.Label("Priority:", style={"fontSize": "11px", "color": "#666",
+                                                   "marginBottom": "4px", "display": "block"}),
+                    dcc.Input(id="exp-rule-priority", type="number", value=50,
+                              style={"padding": "7px", "fontSize": "12px",
+                                     "border": "1px solid #ccc", "borderRadius": "4px",
+                                     "width": "70px"}),
+                ], style={"marginRight": "12px"}),
+                html.Div([
+                    html.Label(" ", style={"fontSize": "11px", "display": "block",
+                                          "marginBottom": "4px"}),
+                    html.Button("Add Rule", id="exp-rule-add-btn", n_clicks=0,
+                                style={"backgroundColor": "#1a7a1a", "color": "white",
+                                       "border": "none", "borderRadius": "4px",
+                                       "padding": "7px 14px", "fontSize": "12px",
+                                       "cursor": "pointer"}),
+                ]),
+            ], style={"display": "flex", "alignItems": "flex-end",
+                      "flexWrap": "wrap", "gap": "4px"}),
+            html.Div(id="exp-rules-status",
+                     style={"fontSize": "12px", "color": ACCENT,
+                            "marginTop": "8px", "fontWeight": "600"}),
+        ], id="exp-rules-form", style={"display": "none", **CARD}),
+
+        dcc.Store(id="exp-reload",        data=0),
+        dcc.Store(id="exp-collapsed-cats", data=EXP_CATEGORIES),
+        dcc.Store(id="exp-selected-txn",  data=None),
 
     ], id="expenditure-tab-content", style={
         "display": "none", "padding": "12px 16px 16px 16px",
@@ -409,28 +512,10 @@ app.layout = html.Div([
 )
 def switch_tab(tab):
     base = {"padding": "12px 16px 16px 16px", "maxWidth": "1400px",
-             "margin": "0 auto", "overflowX": "hidden"}
+            "margin": "0 auto", "overflowX": "hidden"}
     show = {**base, "display": "block"}
     hide = {**base, "display": "none"}
     return (show, hide) if tab == "tab-calendar" else (hide, show)
-
-
-@app.callback(
-    Output("exp-overview-div",     "style"),
-    Output("exp-transactions-div", "style"),
-    Output("exp-review-div",       "style"),
-    Output("exp-rules-div",        "style"),
-    Input("exp-sub-tabs",          "value"),
-)
-def switch_exp_subtab(sub):
-    show = {"display": "block"}
-    hide = {"display": "none"}
-    return (
-        show if sub == "sub-overview"     else hide,
-        show if sub == "sub-transactions" else hide,
-        show if sub == "sub-review"       else hide,
-        show if sub == "sub-rules"        else hide,
-    )
 
 
 # ── CALENDAR CALLBACKS ────────────────────────────────────────
@@ -1256,7 +1341,165 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
 
 
 
-# ── EXPENDITURE: OVERVIEW (PIVOT TABLE) ───────────────────────
+# ── EXPENDITURE: SUB-TAB VISIBILITY ──────────────────────────
+
+@app.callback(
+    Output("exp-overview-div",     "style"),
+    Output("exp-transactions-div", "style"),
+    Output("exp-review-div",       "style"),
+    Output("exp-rules-div",        "style"),
+    Output("exp-rules-form",       "style"),
+    Input("exp-sub-tabs",          "value"),
+)
+def switch_exp_subtab(sub):
+    show = {"display": "block"}
+    hide = {"display": "none"}
+    rules_form = {**show, "borderLeft": f"4px solid {ACCENT}",
+                  **{k: v for k, v in CARD.items()}} if sub == "sub-rules" else hide
+    return (
+        show if sub == "sub-overview"     else hide,
+        show if sub == "sub-transactions" else hide,
+        show if sub == "sub-review"       else hide,
+        show if sub == "sub-rules"        else hide,
+        rules_form,
+    )
+
+
+# ── EXPENDITURE: EDIT PANEL ───────────────────────────────────
+
+@app.callback(
+    Output("exp-selected-txn",   "data"),
+    Output("exp-reload",         "data"),
+    Output("exp-edit-status-msg","children"),
+    Input("exp-save-btn",        "n_clicks"),
+    Input("exp-cancel-btn",      "n_clicks"),
+    Input({"type": "exp-edit-btn", "index": ALL}, "n_clicks"),
+    Input({"type": "exp-approve-btn", "index": ALL}, "n_clicks"),
+    Input({"type": "exp-reject-btn",  "index": ALL}, "n_clicks"),
+    State("exp-edit-cat",        "value"),
+    State("exp-edit-sub",        "value"),
+    State("exp-edit-status",     "value"),
+    State("exp-edit-notes",      "value"),
+    State("exp-selected-txn",    "data"),
+    State("exp-reload",          "data"),
+    prevent_initial_call=True,
+)
+def handle_edit_actions(save_clicks, cancel_clicks, edit_clicks,
+                        approve_clicks, reject_clicks,
+                        cat, sub, status, notes,
+                        selected_txn, current_reload):
+    now      = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    triggered = ctx.triggered_id
+    if not triggered:
+        return selected_txn, current_reload, ""
+
+    ttype = triggered.get("type") if isinstance(triggered, dict) else triggered
+    tid   = triggered.get("index") if isinstance(triggered, dict) else None
+
+    # Row edit button clicked — select this transaction
+    if ttype == "exp-edit-btn":
+        if not any(edit_clicks):
+            return selected_txn, current_reload, ""
+        return tid, current_reload, ""
+
+    # Cancel — deselect
+    elif ttype == "exp-cancel-btn":
+        return None, current_reload, ""
+
+    # Save
+    elif ttype == "exp-save-btn" and save_clicks and selected_txn:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""UPDATE expenditure_transactions
+                        SET category=?, subcategory=?, status=?, notes=?, updated_at=?
+                        WHERE id=?""",
+                     (cat, sub or None, status or "confirmed",
+                      notes or None, now, selected_txn))
+        # Update mapping table
+        desc = conn.execute(
+            "SELECT description_clean FROM expenditure_transactions WHERE id=?",
+            (selected_txn,)).fetchone()
+        if desc and desc[0] and cat:
+            conn.execute("""INSERT OR REPLACE INTO expenditure_mappings
+                            (description_clean, category, subcategory,
+                             match_type, confidence, updated_at)
+                            VALUES (?, ?, ?, 'manual', 1.0, ?)
+                            ON CONFLICT(description_clean) DO UPDATE SET
+                                category=excluded.category,
+                                subcategory=excluded.subcategory,
+                                updated_at=excluded.updated_at
+                         """, (desc[0], cat, sub or None, now))
+        # Update subcategory autocomplete
+        if sub and cat:
+            conn.execute("""INSERT OR REPLACE INTO expenditure_subcategories
+                            (category, subcategory, use_count)
+                            VALUES (?, ?,
+                            COALESCE((SELECT use_count FROM expenditure_subcategories
+                                      WHERE category=? AND subcategory=?), 0) + 1)
+                         """, (cat, sub, cat, sub))
+        conn.commit()
+        conn.close()
+        return None, (current_reload or 0) + 1, "✓ Saved"
+
+    # Approve netting pair
+    elif ttype == "exp-approve-btn":
+        if not any(approve_clicks):
+            return selected_txn, current_reload, ""
+        ids = [int(x) for x in str(tid).split("_")]
+        conn = sqlite3.connect(DB_PATH)
+        for i in ids:
+            conn.execute("""UPDATE expenditure_transactions
+                            SET status='internal', category='Transfer', updated_at=?
+                            WHERE id=?""", (now, i))
+        conn.commit()
+        conn.close()
+        return selected_txn, (current_reload or 0) + 1, ""
+
+    # Reject netting pair
+    elif ttype == "exp-reject-btn":
+        if not any(reject_clicks):
+            return selected_txn, current_reload, ""
+        ids = [int(x) for x in str(tid).split("_")]
+        conn = sqlite3.connect(DB_PATH)
+        for i in ids:
+            conn.execute("""UPDATE expenditure_transactions
+                            SET netting_id=-1, updated_at=? WHERE id=?""",
+                         (now, i))
+        conn.commit()
+        conn.close()
+        return selected_txn, (current_reload or 0) + 1, ""
+
+    return selected_txn, current_reload, ""
+
+
+@app.callback(
+    Output("exp-edit-panel", "style"),
+    Output("exp-edit-cat",   "value"),
+    Output("exp-edit-sub",   "value"),
+    Output("exp-edit-status","value"),
+    Output("exp-edit-notes", "value"),
+    Output("exp-edit-desc",  "children"),
+    Input("exp-selected-txn","data"),
+)
+def load_edit_panel(selected_txn):
+    panel_hide = {"display": "none"}
+    panel_show = {"display": "block", "borderLeft": f"4px solid {ACCENT}", **CARD}
+    if not selected_txn:
+        return panel_hide, None, "", "confirmed", "", ""
+    conn = sqlite3.connect(DB_PATH)
+    row  = conn.execute("""SELECT description_raw, amount, source, category,
+                                  subcategory, status, notes
+                           FROM expenditure_transactions WHERE id=?""",
+                        (selected_txn,)).fetchone()
+    conn.close()
+    if not row:
+        return panel_hide, None, "", "confirmed", "", ""
+    desc_raw, amount, source, cat, sub, status, notes = row
+    amt_str  = fmt_bracket(amount)
+    desc_str = f"{desc_raw}  |  {amt_str}  |  {source}"
+    return panel_show, cat, sub or "", status or "confirmed", notes or "", desc_str
+
+
+# ── EXPENDITURE: OVERVIEW ─────────────────────────────────────
 
 @app.callback(
     Output("exp-overview-div",   "children"),
@@ -1275,7 +1518,6 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
 )
 def update_overview(sub, date_from, date_to, cat_filter, source_filter,
                     reload, import_clicks, collapse_clicks, collapsed_cats):
-
     if sub != "sub-overview":
         return html.Div(), "", collapsed_cats or []
 
@@ -1283,7 +1525,6 @@ def update_overview(sub, date_from, date_to, cat_filter, source_filter,
     triggered     = ctx.triggered_id
     collapsed     = list(collapsed_cats or [])
 
-    # ── Handle Import ──
     if triggered == "exp-import-btn" and import_clicks:
         try:
             import importlib.util, io
@@ -1301,7 +1542,6 @@ def update_overview(sub, date_from, date_to, cat_filter, source_filter,
         except Exception as e:
             import_status = f"Import error: {str(e)[:100]}"
 
-    # ── Handle collapse toggle ──
     elif isinstance(triggered, dict) and triggered.get("type") == "exp-collapse-btn":
         cat = triggered["index"]
         if cat in collapsed:
@@ -1309,33 +1549,27 @@ def update_overview(sub, date_from, date_to, cat_filter, source_filter,
         else:
             collapsed.append(cat)
 
-    # ── Build pivot query ──
     conn   = sqlite3.connect(DB_PATH)
-    where  = ["status != \'internal\'", "category IS NOT NULL"]
+    where  = ["status NOT IN ('internal', 'split')", "category IS NOT NULL"]
     params = []
     if date_from:
         where.append("date >= ?"); params.append(date_from)
     if date_to:
         where.append("date <= ?"); params.append(date_to)
     if cat_filter:
-        placeholders = ",".join("?" * len(cat_filter))
-        where.append(f"category IN ({placeholders})")
-        params.extend(cat_filter)
+        phs = ",".join("?" * len(cat_filter))
+        where.append(f"category IN ({phs})"); params.extend(cat_filter)
     if source_filter:
-        placeholders = ",".join("?" * len(source_filter))
-        where.append(f"source IN ({placeholders})")
-        params.extend(source_filter)
-
-    where_sql = " AND ".join(where)
+        phs = ",".join("?" * len(source_filter))
+        where.append(f"source IN ({phs})"); params.extend(source_filter)
 
     rows = conn.execute(f"""
-        SELECT
-            strftime('%Y-%m', date) as ym,
-            category,
-            COALESCE(subcategory, '') as subcategory,
-            SUM(amount) as total
+        SELECT strftime('%Y-%m', date) as ym,
+               category,
+               COALESCE(subcategory, '') as subcategory,
+               SUM(amount) as total
         FROM expenditure_transactions
-        WHERE {where_sql}
+        WHERE {" AND ".join(where)}
         GROUP BY ym, category, subcategory
         ORDER BY category, subcategory, ym
     """, params).fetchall()
@@ -1343,33 +1577,25 @@ def update_overview(sub, date_from, date_to, cat_filter, source_filter,
 
     if not rows:
         return html.P("No data for selected filters.",
-                      style={"color": "#999", "fontSize": "12px"}), import_status
+                      style={"color": "#999", "fontSize": "12px"}), import_status, collapsed
 
-    # ── Build pivot ──
     df_piv = pd.DataFrame(rows, columns=["ym", "category", "subcategory", "total"])
-
-    # Get sorted month columns
     months = sorted(df_piv["ym"].unique())
-
-    # Group months by year for headers
     years  = sorted(set(m[:4] for m in months))
 
-    # ── Build table ──
     th_base = {"backgroundColor": "#2c1a3a", "color": "white",
                 "padding": "5px 8px", "fontSize": "10px", "fontWeight": "600",
                 "textAlign": "right", "whiteSpace": "nowrap",
                 "borderRight": "1px solid #3d2a5a"}
 
-    # Year header row
     year_cells = [html.Th("Category", style={**th_base, "textAlign": "left",
-                                              "minWidth": "140px"})]
+                                              "minWidth": "150px"})]
     for yr in years:
         yr_months = [m for m in months if m[:4] == yr]
         year_cells.append(html.Th(yr, colSpan=len(yr_months) + 1,
                                    style={**th_base, "textAlign": "center",
                                           "borderLeft": "2px solid #6d3b8c"}))
 
-    # Month header row
     month_names = {"01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May",
                    "06":"Jun","07":"Jul","08":"Aug","09":"Sep","10":"Oct",
                    "11":"Nov","12":"Dec"}
@@ -1377,106 +1603,91 @@ def update_overview(sub, date_from, date_to, cat_filter, source_filter,
     for yr in years:
         yr_months = [m for m in months if m[:4] == yr]
         for m in yr_months:
-            month_cells.append(html.Th(month_names[m[5:]], style={**th_base}))
+            month_cells.append(html.Th(month_names[m[5:]], style=th_base))
         month_cells.append(html.Th("Total", style={**th_base,
                                                     "backgroundColor": "#1a0a2e"}))
 
     table_rows = []
-    categories = df_piv["category"].unique()
-    # Sort by total spend
     cat_totals = df_piv.groupby("category")["total"].sum()
-    categories = sorted(categories, key=lambda c: cat_totals.get(c, 0))
+    categories = sorted(df_piv["category"].unique(),
+                        key=lambda c: cat_totals.get(c, 0))
 
     for cat in categories:
-        cat_df  = df_piv[df_piv["category"] == cat]
-        cat_tot = cat_df["total"].sum()
+        cat_df       = df_piv[df_piv["category"] == cat]
         is_collapsed = cat in collapsed
-        cat_col = EXP_CAT_COLOURS.get(cat, "#666")
+        cat_col      = EXP_CAT_COLOURS.get(cat, "#666")
 
-        # Category row
-        cat_row_cells = [
-            html.Td([
-                html.Button(
-                    "▼" if not is_collapsed else "▶",
-                    id={"type": "exp-collapse-btn", "index": cat},
-                    n_clicks=0,
-                    style={"backgroundColor": "transparent", "border": "none",
-                           "cursor": "pointer", "fontSize": "9px", "color": cat_col,
-                           "padding": "0 4px 0 0", "verticalAlign": "middle"}
-                ),
-                html.Span(cat, style={"fontWeight": "700", "color": cat_col,
-                                       "fontSize": "12px"}),
-            ], style={"padding": "5px 8px", "whiteSpace": "nowrap",
-                      "backgroundColor": "#f8f5ff"}),
-        ]
+        cat_cells = [html.Td([
+            html.Button("▼" if not is_collapsed else "▶",
+                id={"type": "exp-collapse-btn", "index": cat},
+                n_clicks=0,
+                style={"background": "none", "border": "none",
+                       "cursor": "pointer", "fontSize": "9px",
+                       "color": cat_col, "padding": "0 4px 0 0",
+                       "verticalAlign": "middle"}),
+            html.Span(cat, style={"fontWeight": "700", "color": cat_col,
+                                   "fontSize": "12px"}),
+        ], style={"padding": "5px 8px", "whiteSpace": "nowrap",
+                  "backgroundColor": "#f8f5ff"})]
 
         for yr in years:
             yr_months = [m for m in months if m[:4] == yr]
             for m in yr_months:
                 val = cat_df[cat_df["ym"] == m]["total"].sum()
-                cat_row_cells.append(html.Td(
+                cat_cells.append(html.Td(
                     fmt_bracket(val) if val != 0 else "—",
                     style={"padding": "4px 8px", "fontSize": "11px",
                            "textAlign": "right", "fontFamily": "monospace",
-                           "color": fmt_bracket_color(val),
-                           "fontWeight": "600",
-                           "backgroundColor": "#f8f5ff",
-                           "whiteSpace": "nowrap"}
-                ))
+                           "color": fmt_bracket_color(val), "fontWeight": "600",
+                           "backgroundColor": "#f8f5ff", "whiteSpace": "nowrap"}))
             yr_total = cat_df[cat_df["ym"].str[:4] == yr]["total"].sum()
-            cat_row_cells.append(html.Td(
+            cat_cells.append(html.Td(
                 fmt_bracket(yr_total) if yr_total != 0 else "—",
                 style={"padding": "4px 8px", "fontSize": "11px",
                        "textAlign": "right", "fontFamily": "monospace",
-                       "color": fmt_bracket_color(yr_total),
-                       "fontWeight": "700", "backgroundColor": "#ede8f5",
-                       "borderLeft": "2px solid #6d3b8c", "whiteSpace": "nowrap"}
-            ))
+                       "color": fmt_bracket_color(yr_total), "fontWeight": "700",
+                       "backgroundColor": "#ede8f5",
+                       "borderLeft": "2px solid #6d3b8c", "whiteSpace": "nowrap"}))
 
-        table_rows.append(html.Tr(cat_row_cells,
+        table_rows.append(html.Tr(cat_cells,
                                    style={"borderBottom": "1px solid #e8e0f0"}))
 
-        # Subcategory rows (hidden if collapsed)
         if not is_collapsed:
             subcats = sorted(cat_df["subcategory"].unique())
-            for sub in subcats:
-                sub_df  = cat_df[cat_df["subcategory"] == sub]
-                sub_row = [
-                    html.Td(
-                        html.Span(sub or "—",
-                                  style={"paddingLeft": "20px", "fontSize": "11px",
-                                         "color": "#555"}),
-                        style={"padding": "3px 8px", "whiteSpace": "nowrap"}),
-                ]
+            for subcat in subcats:
+                sub_df  = cat_df[cat_df["subcategory"] == subcat]
+                sub_cells = [html.Td(
+                    html.Span(subcat or "—",
+                              style={"paddingLeft": "24px", "fontSize": "11px",
+                                     "color": "#555"}),
+                    style={"padding": "3px 8px", "whiteSpace": "nowrap"})]
                 for yr in years:
                     yr_months = [m for m in months if m[:4] == yr]
                     for m in yr_months:
                         val = sub_df[sub_df["ym"] == m]["total"].sum()
-                        sub_row.append(html.Td(
+                        sub_cells.append(html.Td(
                             fmt_bracket(val) if val != 0 else "",
                             style={"padding": "3px 8px", "fontSize": "10px",
                                    "textAlign": "right", "fontFamily": "monospace",
                                    "color": fmt_bracket_color(val),
-                                   "whiteSpace": "nowrap"}
-                        ))
-                    yr_sub_tot = sub_df[sub_df["ym"].str[:4] == yr]["total"].sum()
-                    sub_row.append(html.Td(
-                        fmt_bracket(yr_sub_tot) if yr_sub_tot != 0 else "",
+                                   "whiteSpace": "nowrap"}))
+                    yr_sub = sub_df[sub_df["ym"].str[:4] == yr]["total"].sum()
+                    sub_cells.append(html.Td(
+                        fmt_bracket(yr_sub) if yr_sub != 0 else "",
                         style={"padding": "3px 8px", "fontSize": "10px",
                                "textAlign": "right", "fontFamily": "monospace",
-                               "color": fmt_bracket_color(yr_sub_tot),
-                               "fontWeight": "600",
+                               "color": fmt_bracket_color(yr_sub), "fontWeight": "600",
                                "borderLeft": "2px solid #6d3b8c",
-                               "whiteSpace": "nowrap"}
-                    ))
-                table_rows.append(html.Tr(sub_row,
+                               "whiteSpace": "nowrap"}))
+                table_rows.append(html.Tr(sub_cells,
                     style={"borderBottom": "1px solid #f5f0ff",
                            "backgroundColor": "white"}))
 
-    # Grand total row
-    total_cells = [html.Td("TOTAL", style={"padding": "6px 8px", "fontSize": "12px",
-                                            "fontWeight": "700", "color": "#1a0a2e",
-                                            "borderTop": "2px solid #2c1a3a"})]
+    # Grand total
+    total_cells = [html.Td("TOTAL",
+                           style={"padding": "6px 8px", "fontSize": "12px",
+                                  "fontWeight": "700", "color": "#1a0a2e",
+                                  "borderTop": "2px solid #2c1a3a"})]
     for yr in years:
         yr_months = [m for m in months if m[:4] == yr]
         for m in yr_months:
@@ -1486,8 +1697,7 @@ def update_overview(sub, date_from, date_to, cat_filter, source_filter,
                 style={"padding": "6px 8px", "fontSize": "11px",
                        "textAlign": "right", "fontFamily": "monospace",
                        "color": fmt_bracket_color(val), "fontWeight": "700",
-                       "borderTop": "2px solid #2c1a3a", "whiteSpace": "nowrap"}
-            ))
+                       "borderTop": "2px solid #2c1a3a", "whiteSpace": "nowrap"}))
         yr_tot = df_piv[df_piv["ym"].str[:4] == yr]["total"].sum()
         total_cells.append(html.Td(
             fmt_bracket(yr_tot) if yr_tot != 0 else "—",
@@ -1496,20 +1706,17 @@ def update_overview(sub, date_from, date_to, cat_filter, source_filter,
                    "color": fmt_bracket_color(yr_tot), "fontWeight": "700",
                    "borderTop": "2px solid #2c1a3a",
                    "borderLeft": "2px solid #6d3b8c",
-                   "backgroundColor": "#ede8f5", "whiteSpace": "nowrap"}
-        ))
+                   "backgroundColor": "#ede8f5", "whiteSpace": "nowrap"}))
     table_rows.append(html.Tr(total_cells))
 
-    pivot_table = html.Div(
+    pivot = html.Div(
         html.Table(
             [html.Thead([html.Tr(year_cells), html.Tr(month_cells)]),
              html.Tbody(table_rows)],
-            style={"width": "100%", "borderCollapse": "collapse"}
-        ),
-        style={**CARD, "overflowX": "auto", "padding": "0"}
-    )
+            style={"width": "100%", "borderCollapse": "collapse"}),
+        style={**CARD, "overflowX": "auto", "padding": "0"})
 
-    return pivot_table, import_status, collapsed
+    return pivot, import_status, collapsed
 
 
 # ── EXPENDITURE: TRANSACTIONS ─────────────────────────────────
@@ -1522,69 +1729,16 @@ def update_overview(sub, date_from, date_to, cat_filter, source_filter,
     Input("exp-filter-category",   "value"),
     Input("exp-filter-source",     "value"),
     Input("exp-reload",            "data"),
-    Input({"type": "exp-cat-select",   "index": ALL}, "value"),
-    Input({"type": "exp-sub-input",    "index": ALL}, "value"),
-    Input({"type": "exp-delete-btn",   "index": ALL}, "n_clicks"),
-    Input({"type": "exp-internal-btn", "index": ALL}, "n_clicks"),
+    Input("exp-selected-txn",      "data"),
     prevent_initial_call=False,
 )
-def update_transactions(sub, date_from, date_to, cat_filter, source_filter,
-                        reload, cat_values, sub_values, delete_clicks, internal_clicks):
+def update_transactions(sub, date_from, date_to, cat_filter,
+                        source_filter, reload, selected_txn):
     if sub != "sub-transactions":
         return html.Div()
 
-    now      = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    triggered = ctx.triggered_id
-    conn     = sqlite3.connect(DB_PATH)
-
-    if isinstance(triggered, dict):
-        ttype = triggered.get("type")
-        tid   = triggered.get("index")
-
-        if ttype == "exp-cat-select" and cat_values:
-            new_cat = next((v for v in cat_values if v), None)
-            if new_cat and tid:
-                conn.execute("""UPDATE expenditure_transactions
-                                SET category=?, status='confirmed', updated_at=?
-                                WHERE id=?""", (new_cat, now, tid))
-                desc = conn.execute("SELECT description_clean FROM expenditure_transactions WHERE id=?",
-                                    (tid,)).fetchone()
-                if desc:
-                    conn.execute("""INSERT OR REPLACE INTO expenditure_mappings
-                                    (description_clean,category,match_type,confidence,updated_at)
-                                    VALUES(?,?,'manual',1.0,?)
-                                    ON CONFLICT(description_clean) DO UPDATE
-                                    SET category=excluded.category,updated_at=excluded.updated_at
-                                 """, (desc[0], new_cat, now))
-                conn.commit()
-
-        elif ttype == "exp-sub-input" and sub_values:
-            new_sub = next((v for v in sub_values if v), None)
-            if new_sub and tid:
-                conn.execute("UPDATE expenditure_transactions SET subcategory=?,updated_at=? WHERE id=?",
-                             (new_sub, now, tid))
-                cat_row = conn.execute("SELECT category FROM expenditure_transactions WHERE id=?",
-                                       (tid,)).fetchone()
-                if cat_row and cat_row[0]:
-                    conn.execute("""INSERT OR REPLACE INTO expenditure_subcategories
-                                    (category,subcategory,use_count) VALUES(?,?,
-                                    COALESCE((SELECT use_count FROM expenditure_subcategories
-                                              WHERE category=? AND subcategory=?),0)+1)
-                                 """, (cat_row[0], new_sub, cat_row[0], new_sub))
-                conn.commit()
-
-        elif ttype == "exp-delete-btn":
-            conn.execute("DELETE FROM expenditure_transactions WHERE id=?", (tid,))
-            conn.commit()
-
-        elif ttype == "exp-internal-btn":
-            conn.execute("""UPDATE expenditure_transactions
-                            SET status='internal',category='Transfer',updated_at=?
-                            WHERE id=?""", (now, tid))
-            conn.commit()
-
-    # Build filter
-    where  = ["status != 'internal'"]
+    conn   = sqlite3.connect(DB_PATH)
+    where  = ["status NOT IN ('internal', 'split')"]
     params = []
     if date_from:
         where.append("date >= ?"); params.append(date_from)
@@ -1592,15 +1746,14 @@ def update_transactions(sub, date_from, date_to, cat_filter, source_filter,
         where.append("date <= ?"); params.append(date_to)
     if cat_filter:
         phs = ",".join("?" * len(cat_filter))
-        where.append(f"category IN ({phs})")
-        params.extend(cat_filter)
+        where.append(f"category IN ({phs})"); params.extend(cat_filter)
     if source_filter:
         phs = ",".join("?" * len(source_filter))
-        where.append(f"source IN ({phs})")
-        params.extend(source_filter)
+        where.append(f"source IN ({phs})"); params.extend(source_filter)
 
     txns = conn.execute(f"""
-        SELECT id,date,description_raw,amount,source,category,subcategory,mapped_by,confidence,status
+        SELECT id, date, description_raw, amount, source,
+               category, subcategory, mapped_by, confidence, status
         FROM expenditure_transactions
         WHERE {" AND ".join(where)}
         ORDER BY date DESC, id DESC LIMIT 500
@@ -1611,7 +1764,6 @@ def update_transactions(sub, date_from, date_to, cat_filter, source_filter,
         return html.P("No transactions found.",
                       style={"color": "#999", "fontSize": "12px", "padding": "12px"})
 
-    # Summary
     total_spend  = sum(abs(r[3]) for r in txns if r[3] < 0)
     total_income = sum(r[3] for r in txns if r[3] > 0)
     net          = total_income - total_spend
@@ -1628,24 +1780,28 @@ def update_transactions(sub, date_from, date_to, cat_filter, source_filter,
         html.Span(f"Net: {fmt_bracket(net)}",
                   style={"color": fmt_bracket_color(net), "fontWeight": "700",
                          "fontSize": "13px", "fontFamily": "monospace"}),
-        html.Span(f"  ({len(txns)} transactions)",
+        html.Span(f"  ({len(txns)} rows)",
                   style={"color": "#999", "fontSize": "11px"}),
     ], style={**CARD, "padding": "10px 18px"})
 
     header = html.Tr([
         html.Th(c, style={"backgroundColor": "#2c1a3a", "color": "white",
-                          "padding": "6px 8px", "fontSize": "11px", "fontWeight": "600",
-                          "textAlign": "left" if i < 3 else "right", "whiteSpace": "nowrap"})
-        for i, c in enumerate(["Date","Description","Source","Amount",
-                                "Category","Subcategory","By",""])
+                          "padding": "6px 8px", "fontSize": "11px",
+                          "fontWeight": "600", "textAlign": "left" if i < 3 else "right",
+                          "whiteSpace": "nowrap"})
+        for i, c in enumerate(["Date", "Description", "Source",
+                                "Amount", "Category", "Subcategory", "By", ""])
     ])
 
     t_rows = []
     for (txn_id, txn_date, desc_raw, amount, source,
          category, subcategory, mapped_by, confidence, status) in txns:
 
-        amt_color = "#1a7a1a" if amount > 0 else "#c0392b"
-        row_bg    = "#fff8f0" if status == "needs_review" else "transparent"
+        amt_color  = "#1a7a1a" if amount > 0 else "#c0392b"
+        is_selected = txn_id == selected_txn
+        row_bg     = "#f0eafa" if is_selected else (
+                     "#fff8f0" if status == "needs_review" else "transparent")
+        cat_col    = EXP_CAT_COLOURS.get(category or "", "#666")
 
         by_map = {"manual": ("✓","#1a7a1a"), "exact": ("=","#2E75B6"),
                   "keyword": ("K","#2E75B6"), "ai": ("AI","#8e44ad")}
@@ -1653,63 +1809,56 @@ def update_transactions(sub, date_from, date_to, cat_filter, source_filter,
             pct = int((confidence or 0)*100)
             by_label, by_color = f"{pct}%", ("#e67e22" if pct < 90 else "#2E75B6")
         else:
-            by_label, by_color = by_map.get(mapped_by, ("?","#c0392b"))
+            by_label, by_color = by_map.get(mapped_by or "", ("?","#c0392b"))
 
         ndisp = desc_raw if len(desc_raw) <= 38 else desc_raw[:38]+"…"
 
         t_rows.append(html.Tr([
-            html.Td(txn_date, style={"padding":"3px 8px","fontSize":"11px",
-                                     "color":"#555","whiteSpace":"nowrap"}),
+            html.Td(txn_date,
+                    style={"padding": "5px 8px", "fontSize": "11px",
+                           "color": "#555", "whiteSpace": "nowrap"}),
             html.Td(html.Span(ndisp, title=desc_raw),
-                    style={"padding":"3px 8px","fontSize":"11px",
-                           "color":"#1a3a5c","whiteSpace":"nowrap"}),
-            html.Td(source, style={"padding":"3px 8px","fontSize":"10px",
-                                   "color":"#888","textAlign":"right",
-                                   "whiteSpace":"nowrap"}),
+                    style={"padding": "5px 8px", "fontSize": "11px",
+                           "color": "#1a3a5c", "whiteSpace": "nowrap"}),
+            html.Td(source,
+                    style={"padding": "5px 8px", "fontSize": "10px",
+                           "color": "#888", "textAlign": "right",
+                           "whiteSpace": "nowrap"}),
             html.Td(fmt_bracket(amount),
-                    style={"padding":"3px 8px","fontSize":"11px",
-                           "textAlign":"right","fontFamily":"monospace",
-                           "fontWeight":"600","color":amt_color,
-                           "whiteSpace":"nowrap"}),
-            html.Td(dcc.Dropdown(
-                        id={"type":"exp-cat-select","index":txn_id},
-                        options=[{"label":c,"value":c} for c in EXP_CATEGORIES],
-                        value=category, clearable=False,
-                        style={"fontSize":"11px","minWidth":"130px"}),
-                    style={"padding":"2px 4px"}),
-            html.Td(dcc.Input(
-                        id={"type":"exp-sub-input","index":txn_id},
-                        type="text", value=subcategory or "",
-                        placeholder="subcategory...", debounce=True,
-                        style={"padding":"4px","fontSize":"11px",
-                               "border":"1px solid #ddd","borderRadius":"3px",
-                               "width":"110px"}),
-                    style={"padding":"2px 4px"}),
-            html.Td(html.Span(by_label, style={"fontSize":"10px",
-                                                "fontWeight":"700",
-                                                "color":by_color}),
-                    style={"padding":"3px 8px","textAlign":"center"}),
-            html.Td([
-                html.Button("⟳",id={"type":"exp-internal-btn","index":txn_id},
-                            n_clicks=0, title="Mark internal",
-                            style={"backgroundColor":"#95a5a6","color":"white",
-                                   "border":"none","borderRadius":"3px",
-                                   "padding":"2px 5px","fontSize":"10px",
-                                   "cursor":"pointer","marginRight":"3px"}),
-                html.Button("✕",id={"type":"exp-delete-btn","index":txn_id},
-                            n_clicks=0, title="Delete",
-                            style={"backgroundColor":"#c0392b","color":"white",
-                                   "border":"none","borderRadius":"3px",
-                                   "padding":"2px 5px","fontSize":"10px",
-                                   "cursor":"pointer"}),
-            ], style={"padding":"2px 6px","whiteSpace":"nowrap"}),
-        ], style={"borderBottom":"1px solid #f0f3f7","backgroundColor":row_bg}))
+                    style={"padding": "5px 8px", "fontSize": "11px",
+                           "textAlign": "right", "fontFamily": "monospace",
+                           "fontWeight": "600", "color": amt_color,
+                           "whiteSpace": "nowrap"}),
+            html.Td(html.Span(category or "—",
+                              style={"color": cat_col, "fontWeight": "600",
+                                     "fontSize": "11px"}),
+                    style={"padding": "5px 8px", "whiteSpace": "nowrap"}),
+            html.Td(subcategory or "—",
+                    style={"padding": "5px 8px", "fontSize": "11px",
+                           "color": "#666", "whiteSpace": "nowrap"}),
+            html.Td(html.Span(by_label,
+                              style={"fontSize": "10px", "fontWeight": "700",
+                                     "color": by_color}),
+                    style={"padding": "5px 8px", "textAlign": "center"}),
+            html.Td(
+                html.Button("✎ Edit",
+                    id={"type": "exp-edit-btn", "index": txn_id},
+                    n_clicks=0,
+                    style={"backgroundColor": ACCENT if is_selected else "#f0eafa",
+                           "color": "white" if is_selected else ACCENT,
+                           "border": f"1px solid {ACCENT}",
+                           "borderRadius": "3px", "padding": "2px 8px",
+                           "fontSize": "10px", "cursor": "pointer",
+                           "whiteSpace": "nowrap"}),
+                style={"padding": "4px 8px"}),
+        ], style={"borderBottom": "1px solid #f0f3f7",
+                  "backgroundColor": row_bg}))
 
     table = html.Div(
         html.Table([html.Thead(header), html.Tbody(t_rows)],
-                   style={"width":"100%","borderCollapse":"collapse"}),
-        style={**CARD, "overflowX":"auto","padding":"0"}
-    )
+                   style={"width": "100%", "borderCollapse": "collapse"}),
+        style={**CARD, "overflowX": "auto", "padding": "0"})
+
     return html.Div([summary, table])
 
 
@@ -1719,171 +1868,170 @@ def update_transactions(sub, date_from, date_to, cat_filter, source_filter,
     Output("exp-review-div", "children"),
     Input("exp-sub-tabs",    "value"),
     Input("exp-reload",      "data"),
-    Input({"type": "exp-confirm-btn",  "index": ALL}, "n_clicks"),
-    Input({"type": "exp-net-btn",      "index": ALL}, "n_clicks"),
-    Input({"type": "exp-cat-select",   "index": ALL}, "value"),
-    Input({"type": "exp-delete-btn",   "index": ALL}, "n_clicks"),
-    Input({"type": "exp-internal-btn", "index": ALL}, "n_clicks"),
+    Input("exp-selected-txn","data"),
     prevent_initial_call=False,
 )
-def update_review(sub, reload, confirm_clicks, net_clicks,
-                  cat_values, delete_clicks, internal_clicks):
+def update_review(sub, reload, selected_txn):
     if sub != "sub-review":
         return html.Div()
 
-    now      = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    triggered = ctx.triggered_id
-    conn     = sqlite3.connect(DB_PATH)
-
-    if isinstance(triggered, dict):
-        ttype = triggered.get("type")
-        tid   = triggered.get("index")
-
-        if ttype == "exp-confirm-btn":
-            conn.execute("UPDATE expenditure_transactions SET status='confirmed',updated_at=? WHERE id=?",
-                         (now, tid))
-            conn.commit()
-
-        elif ttype == "exp-net-btn":
-            for i in str(tid).split("_"):
-                conn.execute("""UPDATE expenditure_transactions
-                                SET status='internal',category='Transfer',updated_at=?
-                                WHERE id=?""", (now, int(i)))
-            conn.commit()
-
-        elif ttype == "exp-cat-select" and cat_values:
-            new_cat = next((v for v in cat_values if v), None)
-            if new_cat and tid:
-                conn.execute("UPDATE expenditure_transactions SET category=?,status='confirmed',updated_at=? WHERE id=?",
-                             (new_cat, now, tid))
-                conn.commit()
-
-        elif ttype == "exp-delete-btn":
-            conn.execute("DELETE FROM expenditure_transactions WHERE id=?", (tid,))
-            conn.commit()
-
-        elif ttype == "exp-internal-btn":
-            conn.execute("UPDATE expenditure_transactions SET status='internal',category='Transfer',updated_at=? WHERE id=?",
-                         (now, tid))
-            conn.commit()
-
-    # Load review items
+    conn = sqlite3.connect(DB_PATH)
     review_txns = conn.execute("""
-        SELECT id,date,description_raw,amount,source,category,subcategory
+        SELECT id, date, description_raw, amount, source, category, subcategory
         FROM expenditure_transactions
         WHERE status='needs_review'
         ORDER BY date DESC LIMIT 300
     """).fetchall()
 
     netting = conn.execute("""
-        SELECT a.id,a.date,a.description_raw,a.amount,a.source,
-               b.id,b.date,b.description_raw,b.amount,b.source
+        SELECT a.id, a.date, a.description_raw, a.amount, a.source,
+               b.id, b.date, b.description_raw, b.amount, b.source
         FROM expenditure_transactions a
         JOIN expenditure_transactions b
-            ON ABS(a.amount)=ABS(b.amount)
-            AND a.amount*b.amount<0
-            AND ABS(julianday(a.date)-julianday(b.date))<=5
-            AND a.id<b.id
+            ON ABS(a.amount) = ABS(b.amount)
+            AND a.amount * b.amount < 0
+            AND ABS(julianday(a.date) - julianday(b.date)) <= 5
+            AND a.id < b.id
             AND a.status NOT IN ('internal','split')
             AND b.status NOT IN ('internal','split')
+            AND (a.netting_id IS NULL OR a.netting_id != -1)
+            AND (b.netting_id IS NULL OR b.netting_id != -1)
+            AND ABS(a.amount) >= 100
         ORDER BY a.date DESC LIMIT 50
     """).fetchall()
     conn.close()
 
     sections = []
 
-    # Netting
-    if netting:
-        net_rows = []
-        for (a_id,a_date,a_desc,a_amt,a_src,
-             b_id,b_date,b_desc,b_amt,b_src) in netting:
-            net_rows.append(html.Tr([
-                html.Td(a_date,style={"padding":"4px 8px","fontSize":"11px","color":"#555"}),
-                html.Td(a_desc[:30],style={"padding":"4px 8px","fontSize":"11px"}),
-                html.Td(fmt_bracket(a_amt),
-                        style={"padding":"4px 8px","fontSize":"11px",
-                               "fontFamily":"monospace",
-                               "color":fmt_bracket_color(a_amt)}),
-                html.Td(b_date,style={"padding":"4px 8px","fontSize":"11px","color":"#555"}),
-                html.Td(b_desc[:30],style={"padding":"4px 8px","fontSize":"11px"}),
-                html.Td(fmt_bracket(b_amt),
-                        style={"padding":"4px 8px","fontSize":"11px",
-                               "fontFamily":"monospace",
-                               "color":fmt_bracket_color(b_amt)}),
-                html.Td(html.Button("Mark Internal",
-                            id={"type":"exp-net-btn","index":f"{a_id}_{b_id}"},
-                            n_clicks=0,
-                            style={"backgroundColor":"#95a5a6","color":"white",
-                                   "border":"none","borderRadius":"3px",
-                                   "padding":"3px 8px","fontSize":"10px",
-                                   "cursor":"pointer"}),
-                        style={"padding":"4px 6px"}),
-            ], style={"borderBottom":"1px solid #f0f3f7"}))
-
-        net_hdr = html.Tr([
-            html.Th(c, style={"backgroundColor":"#95a5a6","color":"white",
-                              "padding":"5px 8px","fontSize":"11px"})
-            for c in ["Date","Description","Amount","Date","Description","Amount",""]
-        ])
-        sections.append(html.Div([
-            html.P(f"NETTING CANDIDATES ({len(netting)})",
-                   style={**SECTION_TITLE,"marginBottom":"8px"}),
-            html.Div(html.Table([html.Thead(net_hdr),html.Tbody(net_rows)],
-                                style={"width":"100%","borderCollapse":"collapse"}),
-                     style={"overflowX":"auto"}),
-        ], style=CARD))
-
-    # Needs review
     if review_txns:
         rev_rows = []
-        for (txn_id,txn_date,desc_raw,amount,source,category,subcategory) in review_txns:
+        for (txn_id, txn_date, desc_raw, amount, source,
+             category, subcategory) in review_txns:
+
+            is_selected = txn_id == selected_txn
+            amt_color   = "#1a7a1a" if amount > 0 else "#c0392b"
+            cat_col     = EXP_CAT_COLOURS.get(category or "", "#666")
+            row_bg      = "#f0eafa" if is_selected else "#fff8f0"
+            ndisp       = desc_raw if len(desc_raw) <= 40 else desc_raw[:40]+"…"
+
             rev_rows.append(html.Tr([
-                html.Td(txn_date,style={"padding":"4px 8px","fontSize":"11px","color":"#555"}),
-                html.Td(desc_raw[:40],title=desc_raw,
-                        style={"padding":"4px 8px","fontSize":"11px","color":"#1a3a5c"}),
-                html.Td(source,style={"padding":"4px 8px","fontSize":"10px","color":"#888"}),
+                html.Td(txn_date,
+                        style={"padding": "5px 8px", "fontSize": "11px",
+                               "color": "#555", "whiteSpace": "nowrap"}),
+                html.Td(html.Span(ndisp, title=desc_raw),
+                        style={"padding": "5px 8px", "fontSize": "11px",
+                               "color": "#1a3a5c"}),
+                html.Td(source,
+                        style={"padding": "5px 8px", "fontSize": "10px",
+                               "color": "#888", "textAlign": "right"}),
                 html.Td(fmt_bracket(amount),
-                        style={"padding":"4px 8px","fontSize":"11px",
-                               "fontFamily":"monospace","color":fmt_bracket_color(amount)}),
-                html.Td(dcc.Dropdown(
-                            id={"type":"exp-cat-select","index":txn_id},
-                            options=[{"label":c,"value":c} for c in EXP_CATEGORIES],
-                            value=category, clearable=False,
-                            style={"fontSize":"11px","minWidth":"130px"}),
-                        style={"padding":"2px 4px"}),
-                html.Td([
-                    html.Button("✓",id={"type":"exp-confirm-btn","index":txn_id},
-                                n_clicks=0,
-                                style={"backgroundColor":"#1a7a1a","color":"white",
-                                       "border":"none","borderRadius":"3px",
-                                       "padding":"2px 6px","fontSize":"10px",
-                                       "cursor":"pointer","marginRight":"3px"}),
-                    html.Button("⟳",id={"type":"exp-internal-btn","index":txn_id},
-                                n_clicks=0,
-                                style={"backgroundColor":"#95a5a6","color":"white",
-                                       "border":"none","borderRadius":"3px",
-                                       "padding":"2px 5px","fontSize":"10px",
-                                       "cursor":"pointer","marginRight":"3px"}),
-                    html.Button("✕",id={"type":"exp-delete-btn","index":txn_id},
-                                n_clicks=0,
-                                style={"backgroundColor":"#c0392b","color":"white",
-                                       "border":"none","borderRadius":"3px",
-                                       "padding":"2px 5px","fontSize":"10px",
-                                       "cursor":"pointer"}),
-                ], style={"padding":"2px 6px","whiteSpace":"nowrap"}),
-            ], style={"borderBottom":"1px solid #f0f3f7","backgroundColor":"#fff8f0"}))
+                        style={"padding": "5px 8px", "fontSize": "11px",
+                               "textAlign": "right", "fontFamily": "monospace",
+                               "fontWeight": "600", "color": amt_color}),
+                html.Td(html.Span(category or "—",
+                                  style={"color": cat_col, "fontWeight": "600",
+                                         "fontSize": "11px"}),
+                        style={"padding": "5px 8px"}),
+                html.Td(subcategory or "—",
+                        style={"padding": "5px 8px", "fontSize": "11px",
+                               "color": "#666"}),
+                html.Td(
+                    html.Button("✎ Edit",
+                        id={"type": "exp-edit-btn", "index": txn_id},
+                        n_clicks=0,
+                        style={"backgroundColor": ACCENT if is_selected else "#fff8f0",
+                               "color": "white" if is_selected else ACCENT,
+                               "border": f"1px solid {ACCENT}",
+                               "borderRadius": "3px", "padding": "2px 8px",
+                               "fontSize": "10px", "cursor": "pointer"}),
+                    style={"padding": "4px 8px"}),
+            ], style={"borderBottom": "1px solid #f0f3f7",
+                      "backgroundColor": row_bg}))
 
         rev_hdr = html.Tr([
-            html.Th(c,style={"backgroundColor":"#e67e22","color":"white",
-                             "padding":"5px 8px","fontSize":"11px"})
-            for c in ["Date","Description","Account","Amount","Category",""]
+            html.Th(c, style={"backgroundColor": "#e67e22", "color": "white",
+                              "padding": "5px 8px", "fontSize": "11px",
+                              "fontWeight": "600"})
+            for c in ["Date","Description","Account","Amount",
+                      "Category","Subcategory",""]
         ])
         sections.append(html.Div([
             html.P(f"NEEDS REVIEW ({len(review_txns)})",
                    style={**SECTION_TITLE,"color":"#e67e22","marginBottom":"8px"}),
-            html.Div(html.Table([html.Thead(rev_hdr),html.Tbody(rev_rows)],
-                                style={"width":"100%","borderCollapse":"collapse"}),
-                     style={"overflowX":"auto"}),
+            html.P("Click ✎ Edit to assign category and subcategory.",
+                   style={"fontSize":"11px","color":"#aaa",
+                          "marginBottom":"8px","marginTop":"-6px"}),
+            html.Div(
+                html.Table([html.Thead(rev_hdr), html.Tbody(rev_rows)],
+                           style={"width":"100%","borderCollapse":"collapse"}),
+                style={"overflowX":"auto"}),
+        ], style=CARD))
+
+    if netting:
+        net_rows = []
+        for (a_id,a_date,a_desc,a_amt,a_src,
+             b_id,b_date,b_desc,b_amt,b_src) in netting:
+            pair_id = f"{a_id}_{b_id}"
+            net_rows.append(html.Tr([
+                html.Td(a_date, style={"padding":"5px 8px","fontSize":"11px",
+                                       "color":"#555","whiteSpace":"nowrap"}),
+                html.Td(a_desc[:32], title=a_desc,
+                        style={"padding":"5px 8px","fontSize":"11px"}),
+                html.Td(a_src, style={"padding":"5px 8px","fontSize":"10px",
+                                      "color":"#888"}),
+                html.Td(fmt_bracket(a_amt),
+                        style={"padding":"5px 8px","fontSize":"11px",
+                               "fontFamily":"monospace",
+                               "color":fmt_bracket_color(a_amt),
+                               "textAlign":"right"}),
+                html.Td("↔", style={"padding":"5px 4px","color":"#aaa",
+                                    "textAlign":"center"}),
+                html.Td(b_date, style={"padding":"5px 8px","fontSize":"11px",
+                                       "color":"#555","whiteSpace":"nowrap"}),
+                html.Td(b_desc[:32], title=b_desc,
+                        style={"padding":"5px 8px","fontSize":"11px"}),
+                html.Td(b_src, style={"padding":"5px 8px","fontSize":"10px",
+                                      "color":"#888"}),
+                html.Td(fmt_bracket(b_amt),
+                        style={"padding":"5px 8px","fontSize":"11px",
+                               "fontFamily":"monospace",
+                               "color":fmt_bracket_color(b_amt),
+                               "textAlign":"right"}),
+                html.Td([
+                    html.Button("✓ Approve",
+                        id={"type":"exp-approve-btn","index":pair_id},
+                        n_clicks=0,
+                        style={"backgroundColor":"#1a7a1a","color":"white",
+                               "border":"none","borderRadius":"3px",
+                               "padding":"3px 8px","fontSize":"10px",
+                               "cursor":"pointer","marginRight":"4px",
+                               "whiteSpace":"nowrap"}),
+                    html.Button("✕ Reject",
+                        id={"type":"exp-reject-btn","index":pair_id},
+                        n_clicks=0,
+                        style={"backgroundColor":"#c0392b","color":"white",
+                               "border":"none","borderRadius":"3px",
+                               "padding":"3px 8px","fontSize":"10px",
+                               "cursor":"pointer","whiteSpace":"nowrap"}),
+                ], style={"padding":"4px 8px","whiteSpace":"nowrap"}),
+            ], style={"borderBottom":"1px solid #f0f3f7"}))
+
+        net_hdr = html.Tr([
+            html.Th(c, style={"backgroundColor":"#95a5a6","color":"white",
+                              "padding":"5px 8px","fontSize":"11px","fontWeight":"600"})
+            for c in ["Date","Description","Account","Amount","",
+                      "Date","Description","Account","Amount",""]
+        ])
+        sections.append(html.Div([
+            html.P(f"NETTING CANDIDATES ({len(netting)})",
+                   style={**SECTION_TITLE,"marginBottom":"8px"}),
+            html.P("Matched pairs (ABS ≥ £100, within 5 days). Approve = mark both internal. Reject = dismiss permanently.",
+                   style={"fontSize":"11px","color":"#aaa",
+                          "marginBottom":"8px","marginTop":"-6px"}),
+            html.Div(
+                html.Table([html.Thead(net_hdr),html.Tbody(net_rows)],
+                           style={"width":"100%","borderCollapse":"collapse"}),
+                style={"overflowX":"auto"}),
         ], style=CARD))
 
     if not sections:
@@ -1898,6 +2046,7 @@ def update_review(sub, reload, confirm_clicks, net_clicks,
 
 @app.callback(
     Output("exp-rules-div",      "children"),
+    Output("exp-rules-status",   "children"),
     Input("exp-sub-tabs",        "value"),
     Input("exp-reload",          "data"),
     Input("exp-rule-add-btn",    "n_clicks"),
@@ -1912,11 +2061,12 @@ def update_review(sub, reload, confirm_clicks, net_clicks,
 def update_rules(sub, reload, add_clicks, del_clicks,
                  pattern, matchtype, category, subcategory, priority):
     if sub != "sub-rules":
-        return html.Div()
+        return html.Div(), ""
 
     now      = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     triggered = ctx.triggered_id
     conn     = sqlite3.connect(DB_PATH)
+    status_msg = ""
 
     if triggered == "exp-rule-add-btn" and add_clicks and pattern and category:
         conn.execute("""INSERT INTO expenditure_rules
@@ -1925,118 +2075,62 @@ def update_rules(sub, reload, add_clicks, del_clicks,
                      (pattern.upper(), matchtype or "contains",
                       category, subcategory, int(priority or 50), now))
         conn.commit()
+        status_msg = f"✓ Rule added: {pattern.upper()} → {category}"
 
     elif isinstance(triggered, dict) and triggered.get("type") == "exp-rule-del-btn":
-        conn.execute("DELETE FROM expenditure_rules WHERE id=?", (triggered["index"],))
+        conn.execute("DELETE FROM expenditure_rules WHERE id=?",
+                     (triggered["index"],))
         conn.commit()
+        status_msg = "✓ Rule deleted"
 
     rules = conn.execute("""
-        SELECT id,pattern,match_type,category,subcategory,priority
+        SELECT id, pattern, match_type, category, subcategory, priority
         FROM expenditure_rules WHERE active=1
-        ORDER BY priority DESC,pattern
+        ORDER BY priority DESC, pattern
     """).fetchall()
     conn.close()
 
-    th = {"backgroundColor":"#2c1a3a","color":"white",
-          "padding":"5px 8px","fontSize":"11px","fontWeight":"600",
-          "textAlign":"right","whiteSpace":"nowrap"}
-
+    th = {"backgroundColor": "#2c1a3a", "color": "white",
+          "padding": "5px 8px", "fontSize": "11px", "fontWeight": "600",
+          "whiteSpace": "nowrap"}
     header = html.Tr([
-        html.Th(c,style={**th,"textAlign":"left" if i==0 else "right"})
-        for i,c in enumerate(["Pattern","Match","Category","Subcategory","Priority",""])
+        html.Th(c, style={**th, "textAlign": "left" if i == 0 else "right"})
+        for i, c in enumerate(["Pattern","Match","Category",
+                                "Subcategory","Priority",""])
     ])
     r_rows = []
-    for rule_id,pattern,match_type,cat,sub_cat,pri in rules:
+    for rule_id, pat, match_type, cat, sub_cat, pri in rules:
         r_rows.append(html.Tr([
-            html.Td(pattern,style={"padding":"3px 8px","fontSize":"11px",
-                                   "fontFamily":"monospace","color":"#1a3a5c"}),
-            html.Td(match_type,style={"padding":"3px 8px","fontSize":"10px",
-                                      "textAlign":"right","color":"#888"}),
-            html.Td(cat,style={"padding":"3px 8px","fontSize":"11px",
-                               "textAlign":"right",
-                               "color":EXP_CAT_COLOURS.get(cat,"#666"),
-                               "fontWeight":"600"}),
-            html.Td(sub_cat or "—",style={"padding":"3px 8px","fontSize":"11px",
-                                          "textAlign":"right","color":"#666"}),
-            html.Td(str(pri),style={"padding":"3px 8px","fontSize":"11px",
-                                    "textAlign":"right","fontFamily":"monospace"}),
-            html.Td(html.Button("✕",id={"type":"exp-rule-del-btn","index":rule_id},
-                                n_clicks=0,
-                                style={"backgroundColor":"#c0392b","color":"white",
-                                       "border":"none","borderRadius":"3px",
-                                       "padding":"2px 5px","fontSize":"10px",
-                                       "cursor":"pointer"}),
+            html.Td(pat, style={"padding":"3px 8px","fontSize":"11px",
+                                "fontFamily":"monospace","color":"#1a3a5c"}),
+            html.Td(match_type, style={"padding":"3px 8px","fontSize":"10px",
+                                       "textAlign":"right","color":"#888"}),
+            html.Td(cat, style={"padding":"3px 8px","fontSize":"11px",
+                                "textAlign":"right",
+                                "color":EXP_CAT_COLOURS.get(cat,"#666"),
+                                "fontWeight":"600"}),
+            html.Td(sub_cat or "—", style={"padding":"3px 8px","fontSize":"11px",
+                                            "textAlign":"right","color":"#666"}),
+            html.Td(str(pri), style={"padding":"3px 8px","fontSize":"11px",
+                                     "textAlign":"right","fontFamily":"monospace"}),
+            html.Td(html.Button("✕",
+                        id={"type":"exp-rule-del-btn","index":rule_id},
+                        n_clicks=0,
+                        style={"backgroundColor":"#c0392b","color":"white",
+                               "border":"none","borderRadius":"3px",
+                               "padding":"2px 5px","fontSize":"10px",
+                               "cursor":"pointer"}),
                     style={"padding":"3px 6px","textAlign":"right"}),
         ], style={"borderBottom":"1px solid #f0f3f7"}))
 
-    # Add rule form
-    add_form = html.Div([
-        html.P("ADD RULE", style={**SECTION_TITLE,"marginTop":"16px"}),
-        html.Div([
-            html.Div([
-                html.Label("Pattern:",style={"fontSize":"11px","color":"#666",
-                                             "marginBottom":"4px","display":"block"}),
-                dcc.Input(id="exp-rule-pattern",type="text",placeholder="e.g. TESCO",
-                          style={"padding":"7px","fontSize":"12px",
-                                 "border":"1px solid #ccc","borderRadius":"4px",
-                                 "width":"120px"}),
-            ],style={"marginRight":"12px"}),
-            html.Div([
-                html.Label("Match:",style={"fontSize":"11px","color":"#666",
-                                           "marginBottom":"4px","display":"block"}),
-                dcc.Dropdown(id="exp-rule-matchtype",
-                             options=[{"label":"Contains","value":"contains"},
-                                      {"label":"Starts with","value":"starts_with"},
-                                      {"label":"Ends with","value":"ends_with"}],
-                             value="contains",clearable=False,
-                             style={"fontSize":"12px","width":"120px"}),
-            ],style={"marginRight":"12px"}),
-            html.Div([
-                html.Label("Category:",style={"fontSize":"11px","color":"#666",
-                                              "marginBottom":"4px","display":"block"}),
-                dcc.Dropdown(id="exp-rule-category",
-                             options=[{"label":c,"value":c} for c in EXP_CATEGORIES],
-                             placeholder="Category...",
-                             style={"fontSize":"12px","width":"140px"}),
-            ],style={"marginRight":"12px"}),
-            html.Div([
-                html.Label("Subcategory:",style={"fontSize":"11px","color":"#666",
-                                                  "marginBottom":"4px","display":"block"}),
-                dcc.Input(id="exp-rule-subcategory",type="text",placeholder="Optional",
-                          style={"padding":"7px","fontSize":"12px",
-                                 "border":"1px solid #ccc","borderRadius":"4px",
-                                 "width":"110px"}),
-            ],style={"marginRight":"12px"}),
-            html.Div([
-                html.Label("Priority:",style={"fontSize":"11px","color":"#666",
-                                              "marginBottom":"4px","display":"block"}),
-                dcc.Input(id="exp-rule-priority",type="number",value=50,
-                          style={"padding":"7px","fontSize":"12px",
-                                 "border":"1px solid #ccc","borderRadius":"4px",
-                                 "width":"70px"}),
-            ],style={"marginRight":"12px"}),
-            html.Div([
-                html.Label(" ",style={"fontSize":"11px","display":"block",
-                                      "marginBottom":"4px"}),
-                html.Button("Add Rule",id="exp-rule-add-btn",n_clicks=0,
-                            style={"backgroundColor":"#1a7a1a","color":"white",
-                                   "border":"none","borderRadius":"4px",
-                                   "padding":"7px 14px","fontSize":"12px",
-                                   "cursor":"pointer"}),
-            ]),
-        ],style={"display":"flex","alignItems":"flex-end",
-                 "flexWrap":"wrap","gap":"4px"}),
-    ])
+    rules_table = html.Div(
+        html.Table([html.Thead(header), html.Tbody(r_rows)],
+                   style={"width":"100%","borderCollapse":"collapse"}),
+        style={"overflowX":"auto"}
+    ) if r_rows else html.P("No rules defined yet.",
+                            style={"color":"#999","fontSize":"12px"})
 
-    return html.Div([
-        html.Div(
-            html.Table([html.Thead(header),html.Tbody(r_rows)],
-                       style={"width":"100%","borderCollapse":"collapse"}),
-            style={"overflowX":"auto","marginBottom":"12px"}
-        ) if r_rows else html.P("No rules yet.",
-                                style={"color":"#999","fontSize":"12px"}),
-        add_form,
-    ])
+    return rules_table, status_msg
 
 
 # ── RUN ───────────────────────────────────────────────────────

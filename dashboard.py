@@ -2628,6 +2628,10 @@ def update_manage_events(tab, add_clicks, cal_status, delete_clicks):
 
 # ── TRANSACTIONS CALLBACKS ────────────────────────────────────
 
+
+
+# ── TRANSACTIONS CALLBACKS ────────────────────────────────────
+
 @app.callback(
     Output('txn-filter-fund', 'options'),
     Input('main-tabs', 'value'),
@@ -2847,7 +2851,6 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
         ),
         style={**CARD, 'overflowX': 'auto', 'padding': '0'}
     )
-
 
 # ── 11. RUN ─────────────────────────────────────────────────────
 
