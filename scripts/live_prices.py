@@ -12,6 +12,8 @@ import sys
 import yfinance as yf
 from datetime import datetime
 import database
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 TODAY = datetime.today().strftime('%Y-%m-%d')

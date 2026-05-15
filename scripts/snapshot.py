@@ -3,8 +3,10 @@
 # Run automatically via cron at 10pm daily, or manually anytime.
 # Usage: python3 snapshot.py
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import sqlite3
-import os
+import config
 from datetime import datetime
 from datetime import timedelta
 
@@ -72,7 +74,6 @@ def to_gbp(price, price_unit, currency, gbpusd, gbptry):
 
 
 def get_composite_price_gbp(conn, fund_id, gbpusd, gbptry):
-    import config
     comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', []) if c['fund_id'] == fund_id), None)
     if not comp_def:
         return None
@@ -205,15 +206,33 @@ def main():
     while (first + timedelta(days=offset)).weekday() >= 5:
         offset += 1
     first_working_day = first + timedelta(days=offset)
+    conn2 = sqlite3.connect(DB_PATH)
+
+    # Save permanent entry on first working day of month
     if today == first_working_day:
-        conn2 = sqlite3.connect(DB_PATH)
         conn2.execute(
             "INSERT OR REPLACE INTO networth_history (date, total_gbp, source) VALUES (?, ?, 'snapshot')",
             (today.strftime('%Y-%m-%d'), round(total, 2))
         )
-        conn2.commit()
-        conn2.close()
-        print(f"Month-end saved to networth_history: £{total:,.0f}")
+        print(f"Month-start saved permanently: £{total:,.0f} ({today})")
+
+    # Always update today's entry (delete yesterday's temp, insert today's)
+    if today != first_working_day:
+        # Remove previous temp entries for this month that aren't the first working day
+        conn2.execute("""
+            DELETE FROM networth_history
+            WHERE source = 'snapshot'
+            AND date != ?
+            AND strftime('%Y-%m', date) = ?
+        """, (first_working_day.strftime('%Y-%m-%d'), today.strftime('%Y-%m')))
+        conn2.execute(
+            "INSERT OR REPLACE INTO networth_history (date, total_gbp, source) VALUES (?, ?, 'snapshot')",
+            (today.strftime('%Y-%m-%d'), round(total, 2))
+        )
+        print(f"Today's networth saved: £{total:,.0f} ({today})")
+
+    conn2.commit()
+    conn2.close()
 
 
     print(f"Snapshot saved: {snap_date} (id={snap_id})")

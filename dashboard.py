@@ -998,8 +998,8 @@ def update_portfolio(reload, tab, snapshot_date):
     from collections import defaultdict
     cat_totals = defaultdict(float)
     for r in rows_data:
-        if r['value']:
-            cat_totals[r['category']] += r['value']
+        if r['category']:
+            cat_totals[r['category']] += (r['value'] or 0)
 
     # Load category snapshot from database
     snap_cat = {}
@@ -1032,11 +1032,126 @@ def update_portfolio(reload, tab, snapshot_date):
         html.Th(c, style=cat_th_style(i)) for i, c in enumerate(cat_cols)
     ])
 
+# ── Asset type breakdown ──
+    asset_totals = defaultdict(float)
+    for r in rows_data:
+        if r.get('type'):
+            asset_totals[r['type']] += (r['value'] or 0)
+
+    # Load asset type snapshot — use snapshot_categories won't work,
+    # so build from snapshot_holdings joined with instruments
+    snap_asset = {}
+    if snap_label:
+        try:
+            _sc2 = sqlite3.connect(DB_PATH)
+            _sr2 = _sc2.execute(
+                "SELECT id FROM portfolio_snapshots WHERE snap_date = ?", (snapshot_date,)
+            ).fetchone()
+            if _sr2:
+                asset_rows_snap = _sc2.execute("""
+                    SELECT i.asset_type, SUM(sh.value_gbp)
+                    FROM snapshot_holdings sh
+                    JOIN instruments i ON sh.fund_id = i.fund_id
+                    WHERE sh.snapshot_id = ?
+                    GROUP BY i.asset_type
+                    UNION ALL
+                    SELECT 'Cash', SUM(value_gbp)
+                    FROM snapshot_cash
+                    WHERE snapshot_id = ?
+                """, (_sr2[0], _sr2[0])).fetchall()
+                snap_asset = {r[0]: r[1] for r in asset_rows_snap if r[0]}
+            _sc2.close()
+        except Exception:
+            snap_asset = {}
+
+    asset_header = html.Tr([
+        html.Th(c, style=cat_th_style(i)) for i, c in enumerate(
+            ['Asset Type', 'Value £k', '%'] + ([snap_label, 'Chg'] if snap_label else [])
+        )
+    ])
+    asset_rows = []
+    all_assets = set(asset_totals.keys()) | set(snap_asset.keys())
+    for atype, val in sorted(
+        [(a, asset_totals.get(a, 0)) for a in all_assets],
+        key=lambda x: x[1], reverse=True
+    ):
+        pct = val / total * 100 if total else 0
+        snap_asset_val = snap_asset.get(atype, 0) if snap_asset else 0
+        a_chg          = (val - snap_asset_val) if snap_asset else None
+        a_chg_color    = '#1a7a1a' if (a_chg or 0) >= 0 else '#c0392b'
+        asset_rows.append(html.Tr([
+            html.Td(atype, style={
+                'padding': '4px 6px', 'fontSize': '11px',
+                'color': '#1a3a5c', 'fontWeight': '500', 'whiteSpace': 'nowrap',
+            }),
+            html.Td(f"{val/1000:.1f}", style={
+                'padding': '4px 6px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'fontWeight': '600', 'width': '1%', 'whiteSpace': 'nowrap',
+            }),
+            html.Td(f"{pct:.1f}%", style={
+                'padding': '4px 6px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap',
+            }),
+        ] + ([
+            html.Td(f"{snap_asset_val/1000:.1f}" if snap_asset_val else '—', style={
+                'padding': '4px 6px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap',
+            }),
+            html.Td(f"{a_chg/1000:+.1f}" if a_chg is not None else '—', style={
+                'padding': '4px 6px', 'fontSize': '11px',
+                'textAlign': 'right', 'fontFamily': 'monospace',
+                'fontWeight': '600', 'color': a_chg_color,
+                'width': '1%', 'whiteSpace': 'nowrap',
+            }),
+        ] if snap_label else []), style={'borderBottom': '1px solid #f0f3f7'}))
+
+    # Asset type total row
+    snap_asset_total = sum(snap_asset.values()) if snap_asset else 0
+    asset_chg_total  = total - snap_asset_total if snap_asset_total else None
+    asset_chg_color  = '#1a7a1a' if (asset_chg_total or 0) >= 0 else '#c0392b'
+    asset_rows.append(html.Tr([
+        html.Td("TOTAL", style={
+            'padding': '6px 6px', 'fontSize': '11px',
+            'fontWeight': '700', 'color': '#1a3a5c',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td(f"{total/1000:.1f}", style={
+            'padding': '6px 6px', 'fontSize': '11px',
+            'textAlign': 'right', 'fontFamily': 'monospace',
+            'fontWeight': '700', 'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td("100%", style={
+            'padding': '6px 6px', 'fontSize': '11px',
+            'textAlign': 'right', 'fontFamily': 'monospace',
+            'color': '#555', 'borderTop': '2px solid #1a3a5c',
+        }),
+    ] + ([
+        html.Td(f"{snap_asset_total/1000:.1f}" if snap_asset_total else '—', style={
+            'padding': '6px 6px', 'fontSize': '11px',
+            'textAlign': 'right', 'fontFamily': 'monospace',
+            'borderTop': '2px solid #1a3a5c',
+        }),
+        html.Td(f"{asset_chg_total/1000:+.1f}" if asset_chg_total is not None else '—', style={
+            'padding': '6px 6px', 'fontSize': '11px',
+            'textAlign': 'right', 'fontFamily': 'monospace',
+            'fontWeight': '700', 'color': asset_chg_color,
+            'borderTop': '2px solid #1a3a5c',
+        }),
+    ] if snap_label else [])))
+
     cat_rows = []
-    for cat, val in sorted(cat_totals.items(), key=lambda x: x[1], reverse=True):
+    # Merge current and snapshot categories so SOLD ones still appear
+    all_cats = set(cat_totals.keys()) | set(snap_cat.keys())
+    for cat, val in sorted(
+        [(c, cat_totals.get(c, 0)) for c in all_cats],
+        key=lambda x: x[1], reverse=True
+    ):
         pct = val / total * 100 if total else 0
         snap_cat_val = snap_cat.get(cat, 0) if snap_cat else 0
-        cat_chg      = val - snap_cat_val if snap_cat_val else None
+        cat_chg      = (val - snap_cat_val) if snap_cat else None
         cat_chg_color= '#1a7a1a' if (cat_chg or 0) >= 0 else '#c0392b'
         cat_rows.append(html.Tr([
             html.Td(cat, style={
@@ -1106,8 +1221,13 @@ def update_portfolio(reload, tab, snapshot_date):
             [html.Thead(cat_header), html.Tbody(cat_rows)],
             style={'width': '100%', 'borderCollapse': 'collapse', 'tableLayout': 'auto'}
         ),
+        html.P("BY ASSET TYPE  (£k)", style={**SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px', 'marginTop': '16px'}),
+        html.Table(
+            [html.Thead(asset_header), html.Tbody(asset_rows)],
+            style={'width': '100%', 'borderCollapse': 'collapse', 'tableLayout': 'auto'}
+        ),
     ], style=CARD)
-
+    
     return table, f"{total:,.0f}", cat_table
 
 
@@ -2792,6 +2912,12 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
             if val is None: return '—'
             return f"{val:+,.{decimals}f}" if abs(val) >= 100 else f"{val:+,.2f}"
 
+        def fmt_qty(val):
+            if val is None: return '—'
+            if val == int(val): return f"{int(val):+,}"
+            s = f"{val:+,.4f}".rstrip('0').rstrip('.')
+            return s
+
         table_rows.append(html.Tr([
             html.Td(trade_date, style={
                 'padding': '4px 10px', 'fontSize': '11px', 'color': '#555', 'whiteSpace': 'nowrap'}),
@@ -2800,7 +2926,7 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
             html.Td(ttype, style={
                 'padding': '4px 10px', 'fontSize': '11px', 'textAlign': 'right',
                 'fontWeight': '600', 'color': type_color}),
-            html.Td(fmt_signed(signed_qty, decimals=4) if signed_qty is not None else '—', style={
+            html.Td(fmt_qty(signed_qty), style={
                 'padding': '4px 10px', 'fontSize': '11px', 'textAlign': 'right',
                 'fontFamily': 'monospace', 'color': '#555'}),
             html.Td(native_price_str(price, punit_inst, curr), style={

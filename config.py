@@ -26,6 +26,7 @@ FUNDS = [
     {"name": "L&G PMC Asia Pac ex Japan Dev Eq", "id": "GB00B4WT1Y33:GBP"},
     {"name": "L&G Future World ESG Optimised UK Index Fund", "id": "GB00BJH4XW03:GBP"},
     {"name": "Fidelity Funds - Latin America Fund W-Acc-GBP", "id": "LU1033664027:GBP"},
+    {"name": "Fidelity Asia Fund W Acc", "id": "GB00B6Y7NF43:GBX"},
     {"name": "Fid Fil UK HSBC Islamic 0 GBP", "id": "0P0001EWE2"},
 ]
 
@@ -117,6 +118,9 @@ YAHOO_TICKERS = [
     ("SPGP.L", "iShares Gold Producers ETF", "ETF"),
     ("CSCA.L", "iShares MSCI Canada UCITS ETF", "ETF"),
     ("PLAY.L", "iShares Digital Entertainment ETF", "ETF"),
+    ("HMAF.L", "HSBC MSCI AC FAR EAST ex JAPAN UCITS ETF", "ETF"),
+    ("SEMI.L", "iShares MSCI Global Semiconductors UCITS ETF", "ETF"),
+    ("IITU.L", "iShares S&P 500 IT Sector UCITS ETF USD", "ETF"),
     # Commodities — Futures
     ("GC=F", "Gold Futures", "Commodity"),
     ("SI=F", "Silver Futures", "Commodity"),
@@ -137,6 +141,8 @@ YAHOO_TICKERS = [
     ("AIGA.L",   "WisdomTree Agriculture ETC",  "Commodity"),
     ("IGLN.L",   "iShares Physical Gold ETC",    "Commodity"),
     ("ISLN.L",   "iShares Physical Silver ETC",  "Commodity"),
+    ("UC15.L",   "UBS CMCI Composite SF UCITS ETF USD acc",  "Commodity"),
+    ("NUCG.L",   "VanEck Uranium and Nuclear Technologies UCITS ETF",  "Commodity"),
     # Currencies & FX
     ("GBPUSD=X", "GBP/USD", "Index"),
     ("GBPTRY=X",  "GBP/TRY", "Index"),
@@ -166,7 +172,8 @@ YAHOO_TICKERS = [
     ("SAHOL.IS",  "Sabanci Holding",   "Stock"),
     ("PETKM.IS",  "Petkim",            "Stock"),
     ("ASELS.IS",  "Aselsan",           "Stock"),
-    ("ALARK.IS",  "Alarko Holding",    "Stock"),    
+    ("ALARK.IS",  "Alarko Holding",    "Stock"),   
+    ("KAP.IL",  "National Atomic Company Kazatomprom JSC",    "Stock"),  
 ]
 
 

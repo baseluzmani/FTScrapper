@@ -3,6 +3,8 @@
 # It is the only file you run: python3 runner.py
 # Its job is to coordinate the other modules in the right order.
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 import database
 import scraper

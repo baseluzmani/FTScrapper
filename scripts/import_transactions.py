@@ -3,13 +3,19 @@
 # Run manually or via dashboard: python3 import_transactions.py
 # Supports: Ahmet Debit, Ahmet CC, Burcu Debit, Burcu CC, Turkey
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import sqlite3
 import pandas as pd
 import re
-import os
 import glob
+import urllib.request
+import json
 from datetime import datetime
 from difflib import SequenceMatcher
+import config
 
 DB_PATH    = 'data/funds.db'
 IMPORT_DIR = 'data/expenditure'
@@ -92,7 +98,6 @@ def fuzzy_match(desc_clean, mappings):
 def apply_ai(desc_clean, categories):
     """Call Claude API to suggest category for unmatched description."""
     try:
-        import config
         api_key = getattr(config, 'ANTHROPIC_API_KEY', None)
         if not api_key:
             return None
