@@ -89,35 +89,6 @@ def build_composite_data(df):
     return pd.DataFrame(rows)
 
 
-def build_calculated_series(df):
-    """Build CALC:XAUGBP = GC=F / GBPUSD=X."""
-    rows = []
-
-    xauusd = df[df['fund_id'] == 'YF:GC=F'].set_index('date')['close']
-    gbpusd = df[df['fund_id'] == 'YF:GBPUSD=X'].set_index('date')['close']
-
-    if xauusd.empty or gbpusd.empty:
-        return pd.DataFrame()
-
-    common_dates = sorted(set(xauusd.index) & set(gbpusd.index))
-    for date in common_dates:
-        gbpusd_val = gbpusd.loc[date]
-        if gbpusd_val == 0:
-            continue
-        price = xauusd.loc[date] / gbpusd_val
-        rows.append({
-            'fund_id': 'CALC:XAUGBP',
-            'date': date.strftime('%Y-%m-%d'),
-            'open': price,
-            'high': price,
-            'low': price,
-            'close': price,
-            'volume': 0,
-        })
-
-    return pd.DataFrame(rows)
-
-
 def ensure_instruments(conn, df):
     """Ensure composite and calculated instruments exist in the instruments table."""
     needed = []
@@ -125,9 +96,6 @@ def ensure_instruments(conn, df):
     # Add composites
     for comp in getattr(config, 'COMPOSITE_FUNDS', []):
         needed.append((comp['fund_id'], comp['display_name'], comp.get('asset_type', 'Fund'), 'GBP', 'pound', 'Pension'))
-    
-    # Add calculated
-    needed.append(('CALC:XAUGBP', 'Gold / GBP (Spot)', 'Commodity', 'GBP', 'pound', 'Gold'))
     
     for fund_id, name, asset_type, currency, price_unit, category in needed:
         conn.execute("""
@@ -177,24 +145,8 @@ def main():
             subset = df_comp[df_comp['fund_id'] == fid]
             print(f"    {fid}: {len(subset)} rows, {subset['date'].min()} → {subset['date'].max()}")
     
-    print("\nBuilding calculated prices...")
-    df_calc = build_calculated_series(df)
-    print(f"  {len(df_calc)} rows built")
-    if not df_calc.empty:
-        for fid in df_calc['fund_id'].unique():
-            subset = df_calc[df_calc['fund_id'] == fid]
-            print(f"    {fid}: {len(subset)} rows, {subset['date'].min()} → {subset['date'].max()}")
-    
-    print("\nSaving composite prices to database...")
-    saved_comp = save_prices(conn, df_comp)
-    print(f"  {saved_comp} new rows saved")
-    
-    print("\nSaving calculated prices to database...")
-    saved_calc = save_prices(conn, df_calc)
-    print(f"  {saved_calc} new rows saved")
-    
     conn.close()
-    print(f"\nDone. {saved_comp + saved_calc} total new rows added.")
+    print(f"\nDone. {saved_comp} total new rows added.")
 
 
 if __name__ == "__main__":

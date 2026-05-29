@@ -67,6 +67,14 @@ HEADERS = {
     ),
 }
 
+# Account assignments for non-transaction holdings
+HOLDING_ACCOUNTS = {
+    '0P0001EWE2':            'AB Pension',
+    'COMPOSITE:HSBC_ASIA_PAC': 'AB Pension',
+    'COMPOSITE:HSBC_EM':       'AB Pension',
+    'ASSET:HOUSE':             'HOUSE',
+}
+
 # --- Yahoo Finance Tickers ---
 # Format: (ticker, display_name, asset_type)
 # Asset types: Index, ETF, Commodity, Stock
@@ -98,7 +106,6 @@ YAHOO_TICKERS = [
     ("XU030.IS",  "BIST 30",              "Index"),
     ("^BVSP",     "Ibovespa Brazil",      "Index"),
     ("^GSPTSE",   "S&P TSX Canada",       "Index"),
-    ("HPI", "UK Halifax House Price Index", "Index"),
     # Global Equity ETFs
     ("URTH", "MSCI World", "ETF"),
     ("EEM", "MSCI Emerging Markets", "ETF"),
@@ -115,6 +122,7 @@ YAHOO_TICKERS = [
     ("QANT.L", "iShares Quantum Computing ETF", "ETF"),
     ("QWTM.L", "WisdomTree Quantum Computing ETF", "ETF"),
     ("NATP.L", "Future of Defence UCITS ETF", "ETF"),
+    ("DFNG.L", "VanEck Defense ETF A USD Acc", "ETF"),
     ("SPGP.L", "iShares Gold Producers ETF", "ETF"),
     ("CSCA.L", "iShares MSCI Canada UCITS ETF", "ETF"),
     ("PLAY.L", "iShares Digital Entertainment ETF", "ETF"),
@@ -154,6 +162,8 @@ YAHOO_TICKERS = [
     ("GOOG", "Alphabet (Google)", "Stock"),
     ("AMZN", "Amazon", "Stock"),
     ("NVDA", "NVIDIA", "Stock"),
+    ("MSFT", "Microsoft Corporation", "Stock"),
+    ("SPGI", "S&P Global Inc.", "Stock"),
     ("ASML", "ASML Holding", "Stock"),
     ("CRCL", "Circle Internet Group", "Stock"),
     ("QCOM", "Qualcomm", "Stock"),
@@ -168,6 +178,7 @@ YAHOO_TICKERS = [
     ("QQ.L", "QinetiQ Group", "Stock"),
     ("HFG.L", "Hilton Food Group", "Stock"),
     ("CCH.L", "Coca-Cola HBC", "Stock"),
+    ("GRG.L", "Greggs plc", "Stock"),
     ("BA.L", "BAE Systems", "Stock"),
     ("SAHOL.IS",  "Sabanci Holding",   "Stock"),
     ("PETKM.IS",  "Petkim",            "Stock"),
