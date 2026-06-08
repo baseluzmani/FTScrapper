@@ -1,0 +1,131 @@
+fund_id,name,asset_type,currency,price_unit,category
+GB0031728438:GBP,Standard Life Assurance Asia Pacific Ex Japan Equity S4 Pension Fund,Fund,GBP,pence,Asia Pacific
+GB00B3VNFD68:GBP,SL Gold,Gold,GBP,pence,Gold
+GB00B7Z71453:GBP,SL China,Fund,GBP,pence,Asia Pacific
+GB00B61JR401:GBP,SL JPM Natural Resources,Commodity,GBP,pence,Commodity
+GB00B849FB47:GBP,iShares Pacific ex Japan Equity Index Fund (UK) D Acc,Fund,GBP,pence,Asia Pacific
+GB00BF0TZK67:GBP,Legal & General Global Infrastructure Index Fund Class L Distribution,Fund,GBP,pence,Infrastructure
+LU2092165666:GBP,HSBC Islamic Funds - HSBC Islamic Global Equity Index Fund BC GBP,Fund,GBP,pence,US Equity
+GB00B3K5WJ87:GBP,SL Macquarie Global Infrastructure Secs,Fund,GBP,pence,Infrastructure
+LU1408526199:GBP,Robeco Capital Growth Funds - Robeco Emerging Stars Equities G GBP,Fund,GBP,pence,Emerging Markets
+GB00BL0DTP33:GBP,JPM Emerging Markets ESG Equity Fund C GBP - Net Accumulation,Fund,GBP,pence,Emerging Markets
+GB00B0ZGQD71:GBP,ReAssure LG Schroder UK Small Comps 25,Fund,GBP,pence,UK Equity
+GB00B2PLJQ03:GBP,Artemis UK Special Situations Fund I Acc,Fund,GBP,pence,UK Equity
+GB00B3VGBC62:GBP,L&G PMC North America Equity Index 3 Pen,Fund,GBP,pence,US Equity
+GB00B4YKRJ18:GBP,L&G PMC Europe Ex UK Equity Index 3 Pen,Fund,GBP,pence,European
+GB00B4ZFV486:GBP,L&G PMC Japan Equity Index 3 Pen,Fund,GBP,pence,Asia Pacific
+GB00B4WT1Y33:GBP,L&G PMC Asia Pac ex Japan Dev Eq Idx 3 Pen,Fund,GBP,pence,Asia Pacific
+GB00BJH4XW03:GBP,Legal & General Future World ESG Tilted & Optimised UK Index Fund L GBP Acc,Fund,GBP,pence,UK Equity
+YF:^GSPC,S&P 500,Index,USD,point,US Equity
+YF:^FTSE,FTSE 100,Index,GBP,point,UK Equity
+YF:^FTMC,FTSE 250,Index,GBP,point,UK Equity
+YF:XU030.IS,BIST 30,Fund,TRY,point,Turkish Equity
+YF:^N225,Nikkei 225,Index,USD,point,Asia Pacific
+YF:^STOXX50E,Euro Stoxx 50,Index,USD,point,European
+YF:^IXIC,NASDAQ Composite,Index,USD,point,US Equity
+YF:URTH,MSCI World,Stock/ETF,USD,dollar,Global Equity
+YF:EEM,MSCI Emerging Markets,Stock/ETF,USD,dollar,Emerging Markets
+YF:VWRL.L,FTSE All World,Stock/ETF,GBP,pence,Global Equity
+YF:CSP1.L,iShares Core S&P 500 ETF,Stock/ETF,GBP,pence,US Equity
+YF:XDJP.L,Xtr Nikkei 225 UCITS ETF,Stock/ETF,GBP,pence,Asia Pacific
+YF:HMCH.L,HSBC MSCI China UCITS ETF,Stock/ETF,GBP,pence,Asia Pacific
+YF:HCAN.L,HSBC MSCI Canada UCITS ETF,Stock/ETF,GBP,pence,Canada
+YF:DFEU.L,iShares Europe Def UETF,Defence,GBP,pound,Defence
+YF:XAIX.L,X AI and Big Data UCITS ETF,Tech/AI,GBP,pence,Tech/AI
+YF:AINF.L,iShares AI Infrastructure ETF,Tech/AI,GBP,pound,Tech/AI
+YF:UIFS.L,iShares S&P 500 Financials ETF,Stock/ETF,GBP,pence,Financials
+YF:FCBR.L,FT Nasdaq Cs UCITS ETF,Tech/AI,GBP,pence,Tech/AI
+YF:QANT.L,iShares Quantum Computing ETF,Tech/AI,GBP,pound,Quantum
+YF:QWTM.L,WisdomTree Quantum Computing ETF,Tech/AI,GBP,pence,Quantum
+YF:NATP.L,Future of Defence UCITS ETF,Defence,GBP,pence,Defence
+YF:SPGP.L,iShares Gold Producers ETF,Gold,GBP,pence,Gold Miners
+YF:CSCA.L,iShares MSCI Canada UCITS ETF,Stock/ETF,GBP,pence,Canada
+YF:PLAY.L,iShares Digital Entertainment ETF,Tech/AI,GBP,pound,Tech/AI
+YF:GC=F,Gold Futures,Gold,USD,dollar,ETC Gold
+YF:SI=F,Silver Futures,Commodity,USD,dollar,Silver
+YF:HG=F,Copper Futures,Commodity,USD,dollar,Copper
+YF:ZW=F,Wheat Futures,Commodity,USD,dollar,Agriculture
+YF:CL=F,Crude Oil Futures,Commodity,USD,dollar,Energy
+YF:NG=F,Natural Gas Futures,Commodity,USD,dollar,Energy
+YF:CC=F,Cocoa Futures,Commodity,USD,dollar,Agriculture
+YF:BZ=F,Brent Crude Futures,Commodity,USD,dollar,Energy
+YF:PHPP.L,WT Physical Precious Metals ETC,Gold,GBP,pence,ETC Gold
+YF:COPB.L,WisdomTree Copper ETC,Commodity,GBP,pence,Copper
+YF:WEAP.L,WisdomTree Wheat ETC,Commodity,GBP,pound,Agriculture
+YF:MINE.L,iShares Copper Miners ETF,Commodity,GBP,pound,Copper
+YF:NRGT.L,WisdomTree Energy Transition ETC,Commodity,GBP,pence,Energy
+YF:NGSP.L,WisdomTree Natural Gas ETC,Commodity,GBP,pence,Energy
+YF:COCO,WisdomTree Cocoa,Commodity,GBP,pence,Agriculture
+YF:GBPUSD=X,GBP/USD,Index,GBP,ratio,FX
+YF:CNY=X,USD/CNY,Index,GBP,ratio,FX
+YF:BTC-GBP,Bitcoin GBP,Crypto,GBP,pound,Bitcoin
+YF:ETH-GBP,Ethereum GBP,Crypto,GBP,pound,Ethereum
+YF:GOOG,Alphabet (Google),Tech/AI,USD,dollar,Tech/AI
+YF:AMZN,Amazon,Tech/AI,USD,dollar,BigTech
+YF:NVDA,NVIDIA,Tech/AI,USD,dollar,Tech/AI
+YF:ASML,ASML Holding,Tech/AI,USD,dollar,Tech/AI
+YF:QCOM,Qualcomm,Tech/AI,USD,dollar,Tech/AI
+YF:MU,Micron Technology,Tech/AI,USD,dollar,Tech/AI
+YF:JPM,JPMorgan Chase,Stock/ETF,USD,dollar,Financials
+YF:NVO,Novo Nordisk,Stock/ETF,USD,dollar,Healthcare
+YF:LLY,Eli Lilly,Stock/ETF,USD,dollar,Healthcare
+YF:GSK.L,GSK plc,Stock/ETF,GBP,pence,UK Equity
+YF:HSBA.L,HSBC Holdings,Financials,GBP,pence,HSBC
+YF:DATA.L,GlobalData plc,Stock/ETF,GBP,pence,UK Equity
+YF:BRBY.L,Burberry Group,Stock/ETF,GBP,pence,UK Equity
+YF:QQ.L,QinetiQ Group,Defence,GBP,pence,Defence
+YF:HFG.L,Hilton Food Group,Stock/ETF,GBP,pence,UK Equity
+YF:CCH.L,Coca-Cola HBC,Stock/ETF,GBP,pence,UK Equity
+YF:BA.L,BAE Systems,Defence,GBP,pence,Defence
+COMPOSITE:HSBC_EM,HSBC Pension Emerging Markets,Fund,GBP,pound,Emerging Markets
+COMPOSITE:HSBC_SHARIA,HSBC Pension Sharia,Fund,GBP,pound,US Equity
+COMPOSITE:HSBC_UK_ACTIVE,HSBC Pension UK Active,Fund,GBP,pound,UK Equity
+COMPOSITE:HSBC_NORTH_AMERICA,HSBC Pension North America,Fund,GBP,pound,US Equity
+COMPOSITE:HSBC_EUROPE,HSBC Pension Europe,Fund,GBP,pound,European
+COMPOSITE:HSBC_JAPAN,HSBC Pension Japan,Fund,GBP,pound,Asia Pacific
+COMPOSITE:HSBC_ASIA_PAC,HSBC Pension Asia Pacific,Fund,GBP,pound,Asia Pacific
+YF:AIGA.L,WisdomTree Agriculture ETC,Commodity,USD,dollar,Agriculture
+YF:IGLN.L,iShares Physical Gold ETC,Gold,USD,dollar,ETC Gold
+YF:ISLN.L,iShares Physical Silver ETC,Commodity,USD,dollar,Silver
+YF:XAUGBP=X,Gold / GBP (Spot),Gold,GBP,ratio,Physical Gold
+CASH:GBP,Cash GBP,Cash,GBP,pound,Cash
+CASH:USD,Cash USD,Cash,USD,dollar,Cash
+ASSET:HOUSE,House,House,GBP,pound,House
+CALC:XAUGBP,Gold / GBP (Spot),Gold,GBP,pound,Physical Gold
+LU1033664027:GBP,Fidelity Funds - Latin America Fund W-Acc-GBP,Fund,GBP,pence,LatAm Equity
+YF:GBPTRY=X,GBP/TRY,Index,TRY,ratio,FX
+YF:SAHOL.IS,Sabanci Holding,Fund,TRY,point,Turkish Equity
+YF:PETKM.IS,Petkim,Fund,TRY,point,Turkish Equity
+YF:ASELS.IS,Aselsan,Fund,TRY,point,Turkish Equity
+YF:ALARK.IS,Alarko Holding,Fund,TRY,point,Turkish Equity
+CASH:TRY,Cash TRY,Cash,TRY,point,Cash
+0P0001EWE2,Fid Fil UK HSBC Islamic 0 GBP,Fund,GBP,pence,US Equity
+YF:^RUT,Russell 2000 (^RUT),Index,NULL,NULL,NULL
+YF:^DJI,Dow Jones (^DJI),Index,NULL,NULL,NULL
+YF:^VIX,VIX Volatility (^VIX),Index,NULL,NULL,NULL
+YF:^GDAXI,DAX (^GDAXI),Index,NULL,NULL,NULL
+YF:^FCHI,CAC 40 (^FCHI),Index,NULL,NULL,NULL
+YF:^HSI,Hang Seng (^HSI),Index,NULL,NULL,NULL
+YF:^KS11,KOSPI (^KS11),Index,NULL,NULL,NULL
+YF:^AXJO,S&P ASX 200 (^AXJO),Index,NULL,NULL,NULL
+YF:^BSESN,BSE Sensex (^BSESN),Index,NULL,NULL,NULL
+YF:000001.SS,Shanghai Composite (000001.SS),Index,NULL,NULL,NULL
+YF:^TWII,Taiwan Weighted (^TWII),Index,NULL,NULL,NULL
+YF:^STI,Singapore STI (^STI),Index,NULL,NULL,NULL
+YF:^JKSE,Jakarta Composite (^JKSE),Index,NULL,NULL,NULL
+YF:^NZ50,NZX 50 (^NZ50),Index,NULL,NULL,NULL
+YF:^BVSP,Ibovespa Brazil (^BVSP),Index,NULL,NULL,NULL
+YF:^GSPTSE,S&P TSX Canada (^GSPTSE),Index,NULL,NULL,NULL
+YF:CRCL,Circle Internet Group (CRCL),Crypto,USD,dollar,Crypto
+YF:HMAF.L,HSBC MSCI AC FAR EAST ex JAPAN UCITS ETF (HMAF.L),Stock/ETF,GBP,pound,Asia Pacific
+GB00B6Y7NF43:GBX,Fidelity Asia Fund W Acc,Fund,GBP,pence,Asia Pacific
+YF:SEMI.L,iShares MSCI Global Semiconductors UCITS ETF (SEMI.L),Tech/AI,GBP,pound,Semi
+YF:UC15.L,UBS CMCI Composite SF UCITS ETF USD acc (UC15.L),Commodity,GBP,pence,Commodity
+YF:IITU.L,iShares S&P 500 IT Sector UCITS ETF USD (IITU.L),Tech/AI,GBP,pence,Tech/AI
+YF:KAP.IL,National Atomic Company Kazatomprom JSC (KAP.IL),Commodity,USD,dollar,Uranium
+YF:NUCG.L,VanEck Uranium and Nuclear Technologies UCITS ETF (NUCG.L),Commodity,GBP,pound,Uranium
+YF:MSFT,Microsoft Corporation (MSFT),Tech/AI,USD,dollar,BigTech
+YF:GRG.L,Greggs plc (GRG.L),Stock/ETF,NULL,NULL,NULL
+YF:DFNG.L,VanEck Defense ETF A USD Acc (DFNG.L),Defence,GBP,pound,Defence
+YF:SPGI,S&P Global Inc. (SPGI),Financials,USD,dollar,S&P Global
+YF:MARA,MARA Holdings Inc (MARA),Crypto,USD,dollar,Stock

@@ -700,8 +700,19 @@ def update_portfolio(reload, tab, snapshot_date):
             _sc = sqlite3.connect(DB_PATH)
             _sr = _sc.execute("SELECT id FROM portfolio_snapshots WHERE snap_date = ?", (snapshot_date,)).fetchone()
             if _sr:
-                snap_cat = {r[0]: r[1] for r in _sc.execute(
-                    "SELECT category, value_gbp FROM snapshot_categories WHERE snapshot_id = ?", (_sr[0],)).fetchall()}
+                rows_sc = _sc.execute("""
+                    SELECT i.category, SUM(sh.value_gbp)
+                    FROM snapshot_holdings sh
+                    JOIN instruments i ON sh.fund_id = i.fund_id
+                    WHERE sh.snapshot_id = ?
+                    AND sh.fund_id != 'CASH:TOTAL'
+                    GROUP BY i.category
+                """, (_sr[0],)).fetchall()
+                snap_cat = {r[0]: r[1] for r in rows_sc if r[0]}
+                cash_row = _sc.execute(
+                    "SELECT SUM(value_gbp) FROM snapshot_cash WHERE snapshot_id = ?", (_sr[0],)).fetchone()
+                if cash_row and cash_row[0]:
+                    snap_cat['Cash'] = (snap_cat.get('Cash', 0) + cash_row[0])
             _sc.close()
         except Exception:
             snap_cat = {}
