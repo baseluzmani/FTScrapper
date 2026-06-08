@@ -168,6 +168,7 @@ YAHOO_TICKERS = [
     ("CRCL", "Circle Internet Group", "Stock"),
     ("QCOM", "Qualcomm", "Stock"),
     ("MU", "Micron Technology", "Stock"),
+    ("MARA", "MARA Holdings Inc", "Stock"),
     ("JPM", "JPMorgan Chase", "Stock"),
     ("NVO", "Novo Nordisk", "Stock"),
     ("LLY", "Eli Lilly", "Stock"),

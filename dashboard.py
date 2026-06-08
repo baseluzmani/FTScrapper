@@ -769,6 +769,86 @@ def update_portfolio(reload, tab, snapshot_date):
     # Category rows
     cat_cols   = ['Category', 'Value £k', '%'] + ([snap_label, 'Chg'] if snap_label else [])
     cat_header = html.Tr([html.Th(c, style=cat_th_style(i)) for i, c in enumerate(cat_cols)])
+    # ── Account summary ──
+    from collections import defaultdict as _dd
+    acc_totals = _dd(float)
+
+    # Transaction-based holdings
+    conn_acc = sqlite3.connect(DB_PATH)
+    txn_acc = conn_acc.execute("""
+        SELECT t.account, t.fund_id,
+               SUM(CASE WHEN t.type='BUY' THEN t.quantity ELSE -t.quantity END) as net_qty
+        FROM transactions t
+        WHERE t.type != 'DIVIDEND'
+        GROUP BY t.account, t.fund_id
+        HAVING net_qty > 0.0001
+    """).fetchall()
+    conn_acc.close()
+
+    for account, fid, net_qty in txn_acc:
+        inst  = instruments.get(fid, {})
+        curr  = inst.get('currency', 'GBP')
+        punit = inst.get('price_unit', 'pound')
+        if fid.startswith('COMPOSITE:'):
+            comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', []) if c['fund_id'] == fid), None)
+            if comp_def:
+                weighted_gbp = 0.0
+                for c in comp_def['components']:
+                    c_price = get_latest_price(df_combined, c['fund_id'])
+                    c_inst  = instruments.get(c['fund_id'], {})
+                    c_gbp   = to_gbp(c_price, c_inst.get('price_unit','pence'),
+                                     c_inst.get('currency','GBP'), gbpusd, fx_rates)
+                    if c_gbp: weighted_gbp += c_gbp * c['weight']
+                value = weighted_gbp * net_qty if weighted_gbp > 0 else 0
+            else:
+                value = 0
+        elif fid.startswith('ASSET:'):
+            value = net_qty
+        else:
+            raw = get_latest_price(df_combined, fid)
+            gbp = to_gbp(raw, punit, curr, gbpusd, fx_rates) if raw else None
+            value = gbp * net_qty if gbp else 0
+        acc_totals[account] += value
+
+    # Non-transaction holdings from config
+    holding_accounts = getattr(config, 'HOLDING_ACCOUNTS', {})
+    for fid, account in holding_accounts.items():
+        row = next((p for p in rows_data if p['fund_id'] == fid), None)
+        if row and row['value']:
+            acc_totals[account] += row['value']
+
+    # Cash by account
+    for acc in cash_accounts:
+        amount  = float(acc.get('amount', 0))
+        curr    = acc.get('currency', 'GBP')
+        gbp_val = amount if curr == 'GBP' else amount / fx_rates.get(curr, 1.0)
+        acc_totals[acc['name']] += gbp_val
+
+    acc_rows = []
+    for acc, val in sorted(acc_totals.items(), key=lambda x: x[1], reverse=True):
+        pct = val / total * 100 if total else 0
+        acc_rows.append(html.Tr([
+            html.Td(acc, style={'padding': '4px 6px', 'fontSize': '11px',
+                                'color': '#1a3a5c', 'fontWeight': '500', 'whiteSpace': 'nowrap'}),
+            html.Td(f"{val/1000:.1f}", style={'padding': '4px 6px', 'fontSize': '11px',
+                                              'textAlign': 'right', 'fontFamily': 'monospace',
+                                              'fontWeight': '600', 'width': '1%', 'whiteSpace': 'nowrap'}),
+            html.Td(f"{pct:.1f}%", style={'padding': '4px 6px', 'fontSize': '11px',
+                                          'textAlign': 'right', 'fontFamily': 'monospace',
+                                          'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap'}),
+        ], style={'borderBottom': '1px solid #f0f3f7'}))
+
+    # Total row
+    acc_rows.append(html.Tr([
+        html.Td("TOTAL", style={'padding': '6px 6px', 'fontSize': '11px', 'fontWeight': '700',
+                                'color': '#1a3a5c', 'borderTop': '2px solid #1a3a5c'}),
+        html.Td(f"{total/1000:.1f}", style={'padding': '6px 6px', 'fontSize': '11px',
+                                            'textAlign': 'right', 'fontFamily': 'monospace',
+                                            'fontWeight': '700', 'borderTop': '2px solid #1a3a5c'}),
+        html.Td("100%", style={'padding': '6px 6px', 'fontSize': '11px', 'textAlign': 'right',
+                               'fontFamily': 'monospace', 'color': '#555',
+                               'borderTop': '2px solid #1a3a5c'}),
+    ]))
     cat_rows   = []
     all_cats   = set(cat_totals.keys()) | set(snap_cat.keys())
     for cat, val in sorted([(c, cat_totals.get(c, 0)) for c in all_cats], key=lambda x: x[1], reverse=True):
@@ -804,6 +884,16 @@ def update_portfolio(reload, tab, snapshot_date):
         html.P("BY ASSET TYPE  (£k)", style={**SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px', 'marginTop': '16px'}),
         html.Table([html.Thead(asset_header), html.Tbody(asset_rows)],
                    style={'width': '100%', 'borderCollapse': 'collapse', 'tableLayout': 'auto'}),
+        html.P("BY ACCOUNT  (£k)", style={**SECTION_TITLE, 'borderBottom': '1px solid #e0e0e0', 'paddingBottom': '4px', 'marginTop': '16px'}),
+        html.Table(
+            [html.Thead(html.Tr([
+                html.Th('Account', style=cat_th_style(0)),
+                html.Th('Value £k', style=cat_th_style(1)),
+                html.Th('%', style=cat_th_style(2)),
+            ])),
+             html.Tbody(acc_rows)],
+            style={'width': '100%', 'borderCollapse': 'collapse', 'tableLayout': 'auto'}
+        ),
     ], style=CARD)
 
     return table, f"{total:,.0f}", cat_table

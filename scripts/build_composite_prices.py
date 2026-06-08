@@ -146,7 +146,7 @@ def main():
             print(f"    {fid}: {len(subset)} rows, {subset['date'].min()} → {subset['date'].max()}")
     
     conn.close()
-    print(f"\nDone. {saved_comp} total new rows added.")
+    print(f"\nDone.")
 
 
 if __name__ == "__main__":

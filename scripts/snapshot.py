@@ -211,7 +211,7 @@ def main():
     # Save permanent entry on first working day of month
     if today == first_working_day:
         conn2.execute(
-            "INSERT OR REPLACE INTO networth_history (date, total_gbp, source) VALUES (?, ?, 'snapshot')",
+            "INSERT OR REPLACE INTO networth_history (date, total_gbp, source) VALUES (?, ?, 'permanent')",
             (today.strftime('%Y-%m-%d'), round(total, 2))
         )
         print(f"Month-start saved permanently: £{total:,.0f} ({today})")
@@ -223,8 +223,7 @@ def main():
             DELETE FROM networth_history
             WHERE source = 'snapshot'
             AND date != ?
-            AND strftime('%Y-%m', date) = ?
-        """, (first_working_day.strftime('%Y-%m-%d'), today.strftime('%Y-%m')))
+        """, (today.strftime('%Y-%m-%d'),))
         conn2.execute(
             "INSERT OR REPLACE INTO networth_history (date, total_gbp, source) VALUES (?, ?, 'snapshot')",
             (today.strftime('%Y-%m-%d'), round(total, 2))
