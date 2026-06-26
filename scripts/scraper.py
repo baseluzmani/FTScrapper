@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+import time
+from requests.exceptions import RequestException
 
 
 def build_url(fund_id, start_date, end_date):
@@ -22,16 +24,29 @@ def build_url(fund_id, start_date, end_date):
     )
 
 
-def fetch_page(url):
-    # Make an HTTP GET request to the URL
-    # We pass headers so the server thinks we're a real browser
-    response = requests.get(url, headers=config.HEADERS, timeout=30)
+def fetch_page(url, tries=3):
+    """GET the FT page with retry + backoff on connection/timeout errors.
 
-    # .raise_for_status() throws an error if the server
-    # returned a failure code (404, 500, etc.)
-    response.raise_for_status()
-
-    return response.text  # Returns the raw HTML as a string
+    Uses a (connect, read) timeout tuple: 8s to establish the connection,
+    30s to read the response. A dead connection attempt now fails in 8s and
+    retries, instead of hanging the full 30s per fund as it did before.
+    """
+    last_err = None
+    for attempt in range(tries):
+        try:
+            response = requests.get(
+                url,
+                headers=config.HEADERS,
+                timeout=(8, 30),   # (connect timeout, read timeout)
+            )
+            response.raise_for_status()
+            return response.text
+        except RequestException as e:
+            last_err = e
+            print(f"  attempt {attempt + 1}/{tries} failed: {type(e).__name__}")
+            time.sleep(2 ** attempt)   # 1s, 2s, 4s backoff
+    # All retries exhausted — re-raise so runner.py logs it and moves to next fund
+    raise last_err
 
 
 def fetch_fund_name(html, fallback_name):

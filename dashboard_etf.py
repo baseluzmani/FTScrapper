@@ -48,6 +48,17 @@ def get_conn():
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
+def ensure_sources_table():
+    conn = get_conn()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS etf_sources (
+            etf_fund_id TEXT PRIMARY KEY,
+            url         TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
 def get_etf_list():
     conn = get_conn()
     rows = conn.execute("SELECT DISTINCT etf_fund_id FROM etf_holdings ORDER BY etf_fund_id").fetchall()
@@ -100,16 +111,19 @@ def load_stock_map():
             by_isin[str(row['isin']).upper().strip()] = idx
     return smap, by_bloomberg, by_base, by_raw, by_sedol, by_isin
 
-def resolve_ticker(ticker, name, smap, by_bloomberg, by_base, by_raw, by_sedol, by_isin):
+def resolve_ticker(ticker, name, smap, by_bloomberg, by_base, by_raw, by_sedol, by_isin, isin=None):
     """Resolve a raw ticker to a group_figi. Returns (group_figi, canonical_name, yahoo_id)."""
-    t  = str(ticker).strip().upper()
-    tb = t.split()[0]  # first word: 'IBM UN' -> 'IBM'
+    t  = str(ticker).strip().upper() if ticker else ''
+    tb = t.split()[0] if t else ''
     idx = (by_bloomberg.get(t) or
            by_raw.get(t)       or
            by_base.get(t)      or
-           by_base.get(tb)     or
+           (by_base.get(tb) if tb else None) or
            by_sedol.get(t)     or
            by_isin.get(t))
+    # Fall back to ISIN lookup when ticker is blank/unmatched (e.g. Xtrackers)
+    if idx is None and isin and str(isin).strip() and str(isin) != 'nan':
+        idx = by_isin.get(str(isin).strip().upper())
     if idx is not None:
         s = smap.iloc[idx]
         # Use group_figi as canonical key — falls back to figi if not set
@@ -120,7 +134,8 @@ def resolve_ticker(ticker, name, smap, by_bloomberg, by_base, by_raw, by_sedol, 
                  str(s['name']) if s['name'] and str(s['name']) != 'nan' else name)
         yahoo  = parent.iloc[0]['yahoo_id'] if not parent.empty else s.get('yahoo_id')
         return str(gfigi), cname, yahoo
-    return f"RAW:{ticker}|{name}", name, None
+    isin_key = f"|{isin}" if isin else ""
+    return f"RAW:{ticker}{isin_key}|{name}", name, None
 
 def get_consolidated_holdings(etf_id, date):
     """
@@ -132,7 +147,7 @@ def get_consolidated_holdings(etf_id, date):
     conn = get_conn()
     raw = pd.read_sql("""
         SELECT name, ticker, sector, asset_class,
-               weight_pct, market_value, location, currency
+               weight_pct, market_value, location, currency, isin
         FROM etf_holdings
         WHERE etf_fund_id = ? AND scraped_date = ?
     """, conn, params=(etf_id, date))
@@ -145,7 +160,8 @@ def get_consolidated_holdings(etf_id, date):
 
     def resolve_row(row):
         figi, cname, yahoo_id = resolve_ticker(
-            row['ticker'], row['name'], smap, by_bloomberg, by_base, by_raw, by_sedol, by_isin)
+            row['ticker'], row['name'], smap, by_bloomberg, by_base, by_raw, by_sedol, by_isin,
+            isin=row.get('isin'))
         return pd.Series({'canonical_id': figi, 'canonical_name': cname, 'yahoo_id': yahoo_id})
 
     extra = raw.apply(resolve_row, axis=1)
@@ -201,9 +217,15 @@ try:
         f"YF:{t[0]}": f"{t[0].replace('.L','').replace('.IS','')} — {t[1]}"
         for t in YAHOO_TICKERS if t[2] == 'ETF'
     }
+    ETF_PROVIDER_DISPLAY = {
+        f"YF:{t[0]}": (t[3] if len(t) == 4 else '—')
+        for t in YAHOO_TICKERS if t[2] == 'ETF'
+    }
 except ImportError:
     ETF_NAME_MAP = {}
+    ETF_PROVIDER_DISPLAY = {}
 
+ensure_sources_table()
 etf_list    = get_etf_list()
 etf_options = [{'label': ETF_NAME_MAP.get(e, short_name(e)), 'value': e} for e in etf_list]
 default_etf = etf_list[0] if etf_list else None
@@ -223,6 +245,7 @@ app.layout = html.Div([
         dcc.Tab(label='CHANGES',    value='tab-changes',   style=TAB_STYLE, selected_style=TAB_SELECTED),
         dcc.Tab(label='COMPARE',    value='tab-compare',   style=TAB_STYLE, selected_style=TAB_SELECTED),
         dcc.Tab(label='TICKER MAP', value='tab-mapping',   style=TAB_STYLE, selected_style=TAB_SELECTED),
+        dcc.Tab(label='SOURCES',    value='tab-sources',   style=TAB_STYLE, selected_style=TAB_SELECTED),
     ], style={'backgroundColor': NAVY}),
 
     # ── HOLDINGS TAB
@@ -240,6 +263,7 @@ app.layout = html.Div([
                 dcc.Dropdown(id='h-date', clearable=False, style=DROPDOWN_STYLE),
             ]),
         ], style={'display': 'flex', 'alignItems': 'flex-end', 'marginBottom': '12px'}),
+        html.Div(id='h-summary-cards', style={'marginBottom': '12px'}),
         html.Div([html.P('PORTFOLIO COMPOSITION', style=SECTION_TITLE), html.Div(id='h-table')], style=CARD),
         html.Div([html.P('WEIGHT TREND — TOP 20 HOLDINGS OVER TIME', style=SECTION_TITLE),
                   dcc.Graph(id='h-heatmap', config={'displayModeBar': False})], style=CARD),
@@ -306,6 +330,14 @@ app.layout = html.Div([
                 'alignSelf': 'flex-end', 'paddingBottom': '6px'}),
         ], style={'display': 'flex', 'alignItems': 'flex-end', 'marginBottom': '16px'}),
         html.Div(id='cmp-summary-cards', style={'marginBottom': '12px'}),
+        html.Div([
+            html.Div([html.P(id='cmp-top10-a-title', style={**SECTION_TITLE, 'color': ACCENT}),
+                      html.Div(id='cmp-top10-a')],
+                     style={**CARD, 'flex': '1', 'marginRight': '8px', 'borderLeft': f'3px solid {ACCENT}'}),
+            html.Div([html.P(id='cmp-top10-b-title', style={**SECTION_TITLE, 'color': ORANGE}),
+                      html.Div(id='cmp-top10-b')],
+                     style={**CARD, 'flex': '1', 'borderLeft': f'3px solid {ORANGE}'}),
+        ], style={'display': 'flex', 'gap': '8px', 'marginBottom': '12px'}),
         html.Div([html.P('COMMON HOLDINGS — WEIGHT COMPARISON', style=SECTION_TITLE),
                   html.Div(id='cmp-common-table')], style=CARD),
         html.Div([
@@ -386,6 +418,18 @@ app.layout = html.Div([
 
     ], id='tab-mapping-content', style={'display': 'none', 'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}),
 
+    # ── SOURCES TAB
+    html.Div([
+        html.Div([
+            html.P('ETF DATA SOURCES', style=SECTION_TITLE),
+            html.P('Edit the download URL for each ETF and click Save. Click "Open" to go to the provider page.',
+                   style={'fontSize': '11px', 'color': '#888', 'marginBottom': '12px'}),
+            html.Div(id='src-table'),
+            html.Div(id='src-feedback', style={'marginTop': '8px'}),
+        ], style=CARD),
+        dcc.Store(id='src-refresh-trigger', data=0),
+    ], id='tab-sources-content', style={'display': 'none', 'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}),
+
 ], style={'fontFamily': 'system-ui, -apple-system, sans-serif', 'backgroundColor': GREY, 'minHeight': '100vh'})
 
 
@@ -394,13 +438,13 @@ app.layout = html.Div([
 @app.callback(
     Output('tab-holdings-content', 'style'), Output('tab-overlap-content',  'style'),
     Output('tab-changes-content',  'style'), Output('tab-compare-content',  'style'),
-    Output('tab-mapping-content',  'style'),
+    Output('tab-mapping-content',  'style'), Output('tab-sources-content', 'style'),
     Input('etf-tabs', 'value'),
 )
 def switch_tab(tab):
     show = {'display': 'block', 'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}
     hide = {'display': 'none',  'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}
-    tabs = ['tab-holdings', 'tab-overlap', 'tab-changes', 'tab-compare', 'tab-mapping']
+    tabs = ['tab-holdings', 'tab-overlap', 'tab-changes', 'tab-compare', 'tab-mapping', 'tab-sources']
     return tuple(show if tab == t else hide for t in tabs)
 
 
@@ -419,6 +463,7 @@ def update_h_dates(etf_id):
 
 
 @app.callback(
+    Output('h-summary-cards', 'children'),
     Output('h-table', 'children'), Output('h-heatmap', 'figure'), Output('h-line', 'figure'),
     Input('h-etf', 'value'), Input('h-date', 'value'),
 )
@@ -427,11 +472,40 @@ def update_holdings(etf_id, date):
     empty_fig.update_layout(height=300, paper_bgcolor='white', plot_bgcolor='white',
         annotations=[dict(text='No data', showarrow=False, font=dict(size=14, color='#aaa'))])
     if not etf_id or not date:
-        return html.Div('Select an ETF and date'), empty_fig, empty_fig
+        return html.Div(), html.Div('Select an ETF and date'), empty_fig, empty_fig
 
     df = get_consolidated_holdings(etf_id, date)
     if df.empty:
-        return html.Div('No data'), empty_fig, empty_fig
+        return html.Div(), html.Div('No data'), empty_fig, empty_fig
+
+    # Summary stats
+    n_holdings   = len(df)
+    top10_weight = df.sort_values('weight_pct', ascending=False).head(10)['weight_pct'].sum()
+    top5_weight  = df.sort_values('weight_pct', ascending=False).head(5)['weight_pct'].sum()
+    sector_sums  = df.groupby('sector')['weight_pct'].sum().sort_values(ascending=False)
+    n_sectors    = df['sector'].nunique()
+    top_sector   = sector_sums.index[0] if not sector_sums.empty else '—'
+    top_sector_w = sector_sums.iloc[0] if not sector_sums.empty else 0
+    largest_name = df.sort_values('weight_pct', ascending=False).iloc[0]['name']
+    largest_w    = df['weight_pct'].max()
+
+    def stat_card(label, value, sub, color):
+        return html.Div([
+            html.Div(value, style={'fontSize': '22px', 'fontWeight': '800', 'color': color}),
+            html.Div(label, style={'fontSize': '10px', 'color': '#888', 'fontWeight': '600',
+                                   'textTransform': 'uppercase', 'letterSpacing': '0.06em'}),
+            html.Div(sub or '', style={'fontSize': '10px', 'color': '#aaa', 'marginTop': '2px'}),
+        ], style={'backgroundColor': WHITE, 'borderRadius': '8px', 'padding': '12px 20px',
+                  'boxShadow': '0 1px 4px rgba(0,0,0,0.08)', 'textAlign': 'center', 'flex': '1'})
+
+    summary_cards = html.Div([
+        stat_card('Holdings', str(n_holdings), 'distinct positions', BLUE),
+        stat_card('Top 5 Weight', f"{top5_weight:.1f}%", 'concentration', ACCENT),
+        stat_card('Top 10 Weight', f"{top10_weight:.1f}%", 'concentration', ACCENT),
+        stat_card('Sectors', str(n_sectors), f"largest: {top_sector[:18]}", BLUE),
+        stat_card('Top Sector Weight', f"{top_sector_w:.1f}%", top_sector[:22], ORANGE),
+        stat_card('Largest Position', f"{largest_w:.1f}%", largest_name[:22], ACCENT),
+    ], style={'display': 'flex', 'gap': '10px', 'flexWrap': 'wrap'})
 
     max_w = df['weight_pct'].max() or 1
     rows  = []
@@ -521,7 +595,7 @@ def update_holdings(etf_id, date):
             hovermode='x unified',
         )
 
-    return table, heatmap_fig, line_fig
+    return summary_cards, table, heatmap_fig, line_fig
 
 
 # ── OVERLAP CALLBACKS ─────────────────────────────────────────────────────────
@@ -730,6 +804,10 @@ def update_changes(etf_id, date_from, date_to):
 @app.callback(
     Output('cmp-date-info',     'children'),
     Output('cmp-summary-cards', 'children'),
+    Output('cmp-top10-a-title', 'children'),
+    Output('cmp-top10-a',       'children'),
+    Output('cmp-top10-b-title', 'children'),
+    Output('cmp-top10-b',       'children'),
     Output('cmp-common-table',  'children'),
     Output('cmp-only-a-title',  'children'),
     Output('cmp-only-a',        'children'),
@@ -747,12 +825,14 @@ def update_compare(etf_a, etf_b):
                      style={'color': '#aaa', 'fontSize': '13px', 'padding': '20px'})
 
     if not etf_a or not etf_b or etf_a == etf_b:
-        return ('Select two different ETFs', blank, blank, 'Only in A', blank, 'Only in B', blank, empty_fig)
+        return ('Select two different ETFs', blank, 'Top 10 A', blank, 'Top 10 B', blank,
+                blank, 'Only in A', blank, 'Only in B', blank, empty_fig)
 
     date_a = get_latest_date(etf_a)
     date_b = get_latest_date(etf_b)
     if not date_a or not date_b:
-        return ('No data available', blank, blank, 'Only in A', blank, 'Only in B', blank, empty_fig)
+        return ('No data available', blank, 'Top 10 A', blank, 'Top 10 B', blank,
+                blank, 'Only in A', blank, 'Only in B', blank, empty_fig)
 
     df_a = get_consolidated_holdings(etf_a, date_a)
     df_b = get_consolidated_holdings(etf_b, date_b)
@@ -781,9 +861,15 @@ def update_compare(etf_a, etf_b):
     # Date info
     date_info = f"Latest snapshot — {name_a}: {date_a}  |  {name_b}: {date_b}"
 
+    # Top 10 holdings by weight for each ETF
+    top10_a_df = df_a.sort_values('weight_pct', ascending=False).head(10)
+    top10_b_df = df_b.sort_values('weight_pct', ascending=False).head(10)
+    top10_w_a  = top10_a_df['weight_pct'].sum()
+    top10_w_b  = top10_b_df['weight_pct'].sum()
+
     # Summary cards
-    overlap_w_a = sum(get_w(idx_a, k) for k in common)
-    overlap_w_b = sum(get_w(idx_b, k) for k in common)
+    # True overlap = sum of min(weight_a, weight_b) for each common holding
+    overlap_weight = sum(min(get_w(idx_a, k), get_w(idx_b, k)) for k in common)
 
     def stat_card(label, value, sub, color):
         return html.Div([
@@ -798,9 +884,35 @@ def update_compare(etf_a, etf_b):
         stat_card('Common Holdings', str(len(common)), 'appear in both ETFs', ACCENT),
         stat_card(f'Only in {name_a}', str(len(only_a)), f'{len(df_a)} total holdings', ACCENT),
         stat_card(f'Only in {name_b}', str(len(only_b)), f'{len(df_b)} total holdings', ORANGE),
-        stat_card(f'Overlap weight in {name_a}', f"{overlap_w_a:.1f}%", 'of ETF A by weight', BLUE),
-        stat_card(f'Overlap weight in {name_b}', f"{overlap_w_b:.1f}%", 'of ETF B by weight', BLUE),
-    ], style={'display': 'flex', 'gap': '10px', 'marginBottom': '12px'})
+        stat_card('Portfolio Overlap', f"{overlap_weight:.1f}%", 'sum of min(weight A, weight B)', BLUE),
+        stat_card(f'Top 10 Weight — {name_a}', f"{top10_w_a:.1f}%", 'concentration of top 10', ACCENT),
+        stat_card(f'Top 10 Weight — {name_b}', f"{top10_w_b:.1f}%", 'concentration of top 10', ORANGE),
+    ], style={'display': 'flex', 'gap': '10px', 'marginBottom': '12px', 'flexWrap': 'wrap'})
+
+    # Top 10 holdings tables
+    def top10_table(df_top, color):
+        if df_top.empty:
+            return html.Div('None', style={'color': '#aaa', 'fontSize': '12px'})
+        rows = []
+        for i, (_, r) in enumerate(df_top.iterrows()):
+            figi       = str(r['canonical_id'])
+            figi_short = figi[:14] + '…' if len(figi) > 14 else figi
+            rows.append(html.Tr([
+                html.Td(str(i+1), style={'padding': '4px 8px', 'fontSize': '11px', 'color': '#aaa', 'width': '24px'}),
+                html.Td(figi_short, style={'padding': '4px 8px', 'fontSize': '10px',
+                                            'color': '#999', 'fontFamily': 'monospace'}),
+                html.Td(r['name'], style={'padding': '4px 8px', 'fontSize': '12px', 'color': BLUE}),
+                html.Td(fmt_w(r['weight_pct']), style={'padding': '4px 8px', 'fontSize': '11px',
+                                                        'textAlign': 'right', 'fontFamily': 'monospace',
+                                                        'fontWeight': '600', 'color': color}),
+            ], style={'borderBottom': '1px solid #f0f3f7'}))
+        return html.Div(html.Table([
+            html.Thead(html.Tr([th('#'), th('FIGI'), th('Name'), th('Weight', 'right')])),
+            html.Tbody(rows),
+        ], style={'width': '100%', 'borderCollapse': 'collapse'}), style={'overflowX': 'auto'})
+
+    top10_a_title = f'TOP 10 HOLDINGS — {name_a} ({top10_w_a:.1f}% of fund)'
+    top10_b_title = f'TOP 10 HOLDINGS — {name_b} ({top10_w_b:.1f}% of fund)'
 
     # Common holdings table
     common_data = sorted([{
@@ -901,7 +1013,10 @@ def update_compare(etf_a, etf_b):
     else:
         cmp_heatmap = empty_fig
 
-    return (date_info, summary_cards, common_table,
+    return (date_info, summary_cards,
+            top10_a_title, top10_table(top10_a_df, ACCENT),
+            top10_b_title, top10_table(top10_b_df, ORANGE),
+            common_table,
             only_a_title, only_table(only_a, idx_a, ACCENT),
             only_b_title, only_table(only_b, idx_b, ORANGE),
             cmp_heatmap)
@@ -1298,6 +1413,103 @@ def handle_approve_actions(auto_clicks, approve_clicks, empty_clicks,
 
     conn.close()
     raise dash.exceptions.PreventUpdate
+
+
+# ── SOURCES CALLBACKS ─────────────────────────────────────────────────────────
+
+@app.callback(
+    Output('src-table', 'children'),
+    Input('src-refresh-trigger', 'data'),
+)
+def render_sources_table(_trigger):
+    conn  = get_conn()
+    urls  = dict(conn.execute("SELECT etf_fund_id, url FROM etf_sources").fetchall())
+    conn.close()
+
+    rows = []
+    for i, etf_id in enumerate(sorted(etf_list)):
+        bg       = WHITE if i % 2 == 0 else '#f9fbfd'
+        label    = ETF_NAME_MAP.get(etf_id, short_name(etf_id))
+        provider = ETF_PROVIDER_DISPLAY.get(etf_id, '—')
+        url_val  = urls.get(etf_id, '') or ''
+        rows.append(html.Tr([
+            html.Td(label, style={'padding': '8px', 'fontSize': '12px', 'color': BLUE,
+                                  'fontWeight': '500', 'whiteSpace': 'nowrap'}),
+            html.Td(provider, style={'padding': '8px', 'fontSize': '11px', 'color': '#888',
+                                     'textTransform': 'capitalize'}),
+            html.Td(
+                dcc.Input(id={'type': 'src-url-input', 'index': etf_id}, value=url_val,
+                          type='text', placeholder='Paste download URL…', debounce=False,
+                          style={'fontSize': '12px', 'padding': '6px 8px', 'border': '1px solid #ddd',
+                                 'borderRadius': '4px', 'width': '100%'}),
+                style={'padding': '8px', 'minWidth': '320px'}
+            ),
+            html.Td(
+                html.A('Open', href=url_val or '#', target='_blank',
+                       style={'fontSize': '11px', 'color': WHITE, 'backgroundColor': ACCENT if url_val else '#ccc',
+                              'padding': '6px 12px', 'borderRadius': '4px', 'textDecoration': 'none',
+                              'fontWeight': '600', 'pointerEvents': 'auto' if url_val else 'none'}),
+                style={'padding': '8px', 'textAlign': 'center', 'width': '70px'}
+            ),
+            html.Td(
+                html.Button('Save', id={'type': 'src-save-btn', 'index': etf_id}, n_clicks=0,
+                    style={'backgroundColor': GREEN, 'color': WHITE, 'border': 'none',
+                           'borderRadius': '4px', 'padding': '6px 12px', 'fontSize': '11px',
+                           'fontWeight': '600', 'cursor': 'pointer'}),
+                style={'padding': '8px', 'textAlign': 'center', 'width': '70px'}
+            ),
+        ], style={'backgroundColor': bg, 'borderBottom': '1px solid #f0f3f7'}))
+
+    return html.Table([
+        html.Thead(html.Tr([th('ETF'), th('Provider'), th('Download URL'), th('', 'center'), th('', 'center')])),
+        html.Tbody(rows),
+    ], style={'width': '100%', 'borderCollapse': 'collapse'})
+
+
+@app.callback(
+    Output('src-refresh-trigger', 'data'),
+    Output('src-feedback',        'children'),
+    Input({'type': 'src-save-btn', 'index': dash.ALL}, 'n_clicks'),
+    State({'type': 'src-url-input', 'index': dash.ALL}, 'value'),
+    State({'type': 'src-url-input', 'index': dash.ALL}, 'id'),
+    State('src-refresh-trigger', 'data'),
+    prevent_initial_call=True,
+)
+def save_source_url(n_clicks_list, url_values, url_ids, current_trigger):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise dash.exceptions.PreventUpdate
+
+    trigger_val = ctx.triggered[0]['value']
+    if trigger_val == 0 or trigger_val is None:
+        raise dash.exceptions.PreventUpdate
+
+    clicked = ctx.triggered_id
+    if not clicked or 'index' not in clicked:
+        raise dash.exceptions.PreventUpdate
+    clicked_etf = clicked['index']
+
+    # Find the matching URL value by etf_fund_id
+    url_val = ''
+    for uid, uval in zip(url_ids, url_values):
+        if uid['index'] == clicked_etf:
+            url_val = (uval or '').strip()
+            break
+
+    conn = get_conn()
+    conn.execute("""
+        INSERT INTO etf_sources (etf_fund_id, url) VALUES (?, ?)
+        ON CONFLICT(etf_fund_id) DO UPDATE SET url = excluded.url
+    """, (clicked_etf, url_val))
+    conn.commit()
+    conn.close()
+
+    label = ETF_NAME_MAP.get(clicked_etf, short_name(clicked_etf))
+    feedback = html.Div(f"✓ Saved URL for {label}.",
+        style={'backgroundColor': '#eafaf1', 'color': GREEN, 'padding': '8px 14px',
+               'borderRadius': '4px', 'fontSize': '12px', 'fontWeight': '600',
+               'border': f'1px solid {GREEN}'})
+    return current_trigger + 1, feedback
 
 
 if __name__ == '__main__':

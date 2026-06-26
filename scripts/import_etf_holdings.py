@@ -29,6 +29,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import openpyxl
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,13 @@ def already_imported(conn, etf_fund_id, scraped_date):
 
 
 def insert_holdings(conn, etf_fund_id, scraped_date, holdings):
+    # Ensure isin column exists (for ISIN-only providers like Xtrackers)
+    try:
+        conn.execute("ALTER TABLE etf_holdings ADD COLUMN isin TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists
+
     inserted = 0
     errors   = 0
     for h in holdings:
@@ -129,13 +137,13 @@ def insert_holdings(conn, etf_fund_id, scraped_date, holdings):
             conn.execute("""
                 INSERT OR REPLACE INTO etf_holdings
                     (etf_fund_id, scraped_date, ticker, name, sector,
-                     asset_class, weight_pct, market_value, location, currency)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     asset_class, weight_pct, market_value, location, currency, isin)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 etf_fund_id, scraped_date,
                 h.get('ticker'), h['name'], h.get('sector'),
                 h.get('asset_class'), h.get('weight_pct'), h.get('market_value'),
-                h.get('location'), h.get('currency'),
+                h.get('location'), h.get('currency'), h.get('isin'),
             ))
             inserted += 1
         except Exception as e:
@@ -364,6 +372,82 @@ def parse_vaneck_xlsx(filepath):
 
     return holdings, scraped_date
 
+
+
+def parse_xtrackers_xlsx(filepath):
+    """
+    Xtrackers / DWS holdings XLSX format.
+    Sheet name = date (e.g. '2026-06-18').
+    Row 1: disclaimer text (skipped)
+    Row 4 (index 3): headers — #, Name, ISIN, Country, Currency, Exchange,
+                      Type of Security, Rating, Primary Listing,
+                      Industry Classification, Weighting
+    Row 5+ (index 4+): data
+    No ticker column — ISIN only. Weighting is a decimal fraction (0.1164 = 11.64%).
+    """
+    holdings     = []
+    scraped_date = None
+
+    wb = openpyxl.load_workbook(filepath, data_only=True)
+    sheet_name = wb.sheetnames[0]
+
+    # Sheet name is the as-of date, e.g. '2026-06-18'
+    m = re.search(r'(\d{4}-\d{2}-\d{2})', sheet_name)
+    if m:
+        scraped_date = m.group(1)
+
+    ws = wb[sheet_name]
+    rows = list(ws.iter_rows(values_only=True))
+
+    # Find header row (contains 'Name' and 'ISIN')
+    header_idx = None
+    for i, row in enumerate(rows):
+        if row and 'Name' in row and 'ISIN' in row:
+            header_idx = i
+            break
+    if header_idx is None:
+        header_idx = 3  # fallback to known position
+
+    headers = [str(h).strip() if h else '' for h in rows[header_idx]]
+    col = {h: idx for idx, h in enumerate(headers)}
+
+    for row in rows[header_idx + 1:]:
+        if not row or row[col.get('Name', 1)] is None:
+            continue
+        name        = str(row[col['Name']]).strip()
+        isin_val    = str(row[col['ISIN']]).strip() if col.get('ISIN') is not None and row[col['ISIN']] else ''
+        currency    = str(row[col['Currency']]).strip() if col.get('Currency') is not None and row[col['Currency']] else None
+        country     = str(row[col['Country']]).strip() if col.get('Country') is not None and row[col['Country']] else None
+        sector      = str(row[col['Industry Classification']]).strip() if col.get('Industry Classification') is not None and row[col['Industry Classification']] else None
+        sec_type    = str(row[col['Type of Security']]).strip() if col.get('Type of Security') is not None and row[col['Type of Security']] else ''
+        weight_raw  = row[col['Weighting']] if col.get('Weighting') is not None else None
+
+        if not name or name.lower() in ('nan', 'cash', 'other'):
+            continue
+        # Skip futures/derivatives/cash-management instruments
+        if sec_type.lower() in ('future', 'futures', 'forward', 'swap', 'option', 'cash'):
+            continue
+        if isin_val.lower() in ('nan', '', 'none'):
+            isin_val = ''
+
+        try:
+            weight = float(weight_raw) * 100 if weight_raw is not None else None
+        except (TypeError, ValueError):
+            weight = None
+
+        holdings.append({
+            'ticker':       '',           # Xtrackers provides no ticker — ISIN-based matching only
+            'name':         name,
+            'sector':       sector,
+            'asset_class':  'Equity',
+            'weight_pct':   weight,
+            'market_value': None,
+            'location':     country,
+            'currency':     currency,
+            'isin':         isin_val,
+        })
+
+    return holdings, scraped_date
 
 
 def parse_hanetf_xlsx(filepath):
@@ -939,6 +1023,94 @@ def resolve_to_stock_map(conn):
     if failed:
         print(f"  First 10 unresolved: {failed[:10]}")
 
+    # ── ISIN-only resolution (for providers like Xtrackers with no ticker column) ──
+    isin_holdings = conn.execute("""
+        SELECT DISTINCT h.isin, h.name
+        FROM etf_holdings h
+        WHERE (h.ticker IS NULL OR h.ticker = '')
+        AND h.isin IS NOT NULL AND h.isin != ''
+    """).fetchall()
+
+    isin_unresolved = []
+    for isin_val, name in isin_holdings:
+        iv = str(isin_val).strip().upper()
+        exists = conn.execute("""
+            SELECT 1 FROM stock_identifier_map
+            WHERE figi NOT LIKE 'UNRESOLVED:%' AND isin = ?
+            LIMIT 1
+        """, (iv,)).fetchone()
+        if not exists:
+            isin_unresolved.append((iv, name))
+
+    if isin_unresolved:
+        print(f"\nResolving {len(isin_unresolved)} new ISINs via OpenFIGI...")
+        isin_resolved = 0
+        isin_failed   = []
+
+        isin_jobs = [{'idType': 'ID_ISIN', 'idValue': iv, 'marketSecDes': 'Equity'}
+                     for iv, _ in isin_unresolved]
+
+        for i in range(0, len(isin_jobs), BATCH_SIZE):
+            batch_jobs = isin_jobs[i:i+BATCH_SIZE]
+            batch_meta = isin_unresolved[i:i+BATCH_SIZE]
+            try:
+                resp    = requests.post(FIGI_URL, headers=headers, json=batch_jobs, timeout=30)
+                results = resp.json()
+            except Exception as e:
+                print(f"  OpenFIGI error: {e}")
+                results = [None] * len(batch_jobs)
+
+            for (isin_val, name), result in zip(batch_meta, results):
+                hit = None
+                if isinstance(result, dict) and result.get('data'):
+                    hit = pick_best(result['data'])
+                if hit and hit.get('figi'):
+                    try:
+                        figi        = hit['figi']
+                        fname       = hit.get('name') or name
+                        bloomberg_c = f"{hit.get('ticker','')} {hit.get('exchCode','')}".strip()
+                        sec_type    = hit.get('securityType') or hit.get('marketSector')
+                        yahoo_id    = None
+                        exch        = hit.get('exchCode')
+                        if exch and hit.get('ticker'):
+                            suf = EXCH_TO_YAHOO.get(exch, '')
+                            yahoo_id = f"YF:{hit['ticker']}{suf}"
+                        conn.execute("""
+                            INSERT INTO stock_identifier_map
+                                (figi, name, base_ticker, exch_code, bloomberg_code,
+                                 isin, yahoo_id, security_type, group_figi, reviewed)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                            ON CONFLICT(figi) DO UPDATE SET
+                                isin       = COALESCE(excluded.isin, isin),
+                                yahoo_id   = COALESCE(excluded.yahoo_id, yahoo_id),
+                                group_figi = COALESCE(group_figi, excluded.group_figi)
+                        """, (figi, fname, hit.get('ticker'), exch, bloomberg_c,
+                              isin_val, yahoo_id, sec_type, figi))
+                        isin_resolved += 1
+                    except Exception as e:
+                        print(f"  Insert error {isin_val}: {e}")
+                else:
+                    isin_failed.append((isin_val, name))
+
+            conn.commit()
+            time.sleep(RATE_SLEEP)
+
+        for isin_val, name in isin_failed:
+            placeholder = f"UNRESOLVED:{isin_val}|{name}"
+            try:
+                conn.execute("""
+                    INSERT OR IGNORE INTO stock_identifier_map
+                        (figi, name, isin, group_figi, reviewed)
+                    VALUES (?, ?, ?, ?, 0)
+                """, (placeholder, name, isin_val, placeholder))
+            except:
+                pass
+        conn.commit()
+
+        print(f"  ISIN Resolved: {isin_resolved}, Unresolved: {len(isin_failed)}")
+        if isin_failed:
+            print(f"  First 10 unresolved ISINs: {[x[0] for x in isin_failed[:10]]}")
+
 
 def process_holdings_dict(conn, results, source_label):
     total_inserted = 0
@@ -1038,6 +1210,8 @@ def import_csv_files(conn):
                 holdings, scraped_date = parse_hanetf_xlsx(str(filepath))
             elif ext == '.xlsx' and provider == 'vaneck':
                 holdings, scraped_date = parse_vaneck_xlsx(str(filepath))
+            elif ext == '.xlsx' and provider == 'xtrackers':
+                holdings, scraped_date = parse_xtrackers_xlsx(str(filepath))
             elif ext in ('.xls', '.xlsx'):
                 holdings, scraped_date = parse_ishares_xls(str(filepath))
             else:

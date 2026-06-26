@@ -237,7 +237,7 @@ def enrich_from_existing_map(conn):
                 '.KS': 'KS', '.KQ': 'KQ', '.T': 'JT', '.TW': 'TT',
                 '.HK': 'HK', '.AX': 'AU', '.SI': 'SP', '.JO': 'SJ',
                 '.TO': 'CN', '.V': 'CV', '.TA': 'IT', '.NS': 'IN',
-                '.BO': 'IB', '.KL': 'MK', '.E': 'TI',   # Borsa Istanbul old format
+                '.BO': 'IB', '.KL': 'MK',
             }
             for suffix, exch in suffix_map.items():
                 if raw.endswith(suffix):
@@ -406,7 +406,6 @@ def main():
 
     create_table(conn)
 
-    enrich_from_existing_map(conn)
     enrich_from_holdings_sedol(conn)
     enrich_from_holdings_isin(conn)
 

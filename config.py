@@ -93,33 +93,39 @@ YAHOO_TICKERS = [
     ("AINF.L",      "iShares AI Infrastructure ETF",               "ETF", "ishares"),
     ("DFEU.L",      "iShares Europe Defence ETF",                   "ETF", "ishares"),
     ("IITU.L",      "iShares S&P 500 IT Sector UCITS ETF",          "ETF", "ishares"),
-    ("IUIT.L",      "iShares S&P 500 IT Sector UCITS ETF USD",          "ETF", "ishares"),
     ("IGLN.L",      "iShares Physical Gold ETC",                    "ETF", "ishares"),
     ("ISLN.L",      "iShares Physical Silver ETC",                  "ETF", "ishares"),
+    ("IUFS.L",      "iShares S&P 500 Financials ETF GBP",           "ETF", "ishares"),
+    ("IUIT.L",      "iShares S&P 500 IT Sector UCITS ETF USD",      "ETF", "ishares"),
+    ("IUUS.L",      "iShares S&P 500 Utilities Sector UCITS ETF USD","ETF", "ishares"),
     ("MINE.L",      "iShares Copper Miners ETF",                    "ETF", "ishares"),
-    ("NUCG.L",      "VanEck Uranium and Nuclear Technologies ETF",  "ETF", "vaneck"),
-    ("NUCL.L",      "VanEck Uranium and Nuclear Technologies USD ETF",  "ETF", "vaneck"),
+    ("NUCG.L",      "VanEck Uranium and Nuclear Technologies ETF",  "ETF", "ishares"),
     ("PLAY.L",      "iShares Digital Entertainment ETF",            "ETF", "ishares"),
     ("QANT.L",      "iShares Quantum Computing ETF",                "ETF", "ishares"),
     ("SEMI.L",      "iShares MSCI Global Semiconductors ETF",       "ETF", "ishares"),
+    ("SPAG.L",      "iShares Agribusiness ETF",                     "ETF", "ishares"),
     ("SPGP.L",      "iShares Gold Producers ETF",                   "ETF", "ishares"),
-    ("SPAG.L",      "iShares Agribusiness ETF",                   "ETF", "ishares"),
     ("UIFS.L",      "iShares S&P 500 Financials ETF",               "ETF", "ishares"),
-    ("IUFS.L",      "iShares S&P 500 Financials ETF GBP",               "ETF", "ishares"),
-    ("IUSU.L",      "iShares S&P 500 Utilities Sector UCITS ETF",   "ETF", "ishares"),
-    ("IUUS.L",      "iShares S&P 500 Utilities Sector UCITS ETF USD",   "ETF", "ishares"),
+    ("RBOT.L",      "iShares Automation & Robotics UCITS ETF",               "ETF", "ishares"),
+    ("BTEC.L",      "iShares Nasdaq US Biotechnology UCITS ETF USD",               "ETF", "ishares"),
+    ("BTEK.L",      "iShares Nasdaq US Biotechnology UCITS ETF GBP",               "ETF", "ishares"),
     # VanEck  (parser TODO — CSV import will be enabled once parser is built)
     ("DFNG.L",      "VanEck Defence ETF (GBP)",                     "ETF", "vaneck"),
     ("NATP.L",      "VanEck NATO Defence ETF",                      "ETF", "vaneck"),
-    ("NATO.L", "HANetf Future of Defence UCITS ETF", "ETF", "hanetf"),
+    ("NUCL.L",      "VanEck Uranium and Nuclear Technologies USD ETF","ETF", "vaneck"),
     # WisdomTree  (parser TODO)
     ("QWTM.L",      "WisdomTree Quantum Computing ETF",             "ETF", "wisdomtree"),
-    ("WQTM.L",      "WisdomTree Quantum Computing ETF USD",             "ETF", "wisdomtree"),
     ("WEAP.L",      "WisdomTree Wheat ETC",                         "ETF", "wisdomtree"),
+    ("WQTM.L",      "WisdomTree Quantum Computing ETF",             "ETF", "wisdomtree"),
     # UBS  (parser TODO)
     ("UC15.L",      "UBS CMCI Composite SF UCITS ETF",              "ETF", "ubs"),
     # Fidelity  (parser TODO)
     ("FCBR.L",      "FT Nasdaq Clean Energy UCITS ETF",             "ETF", "fidelity"),
+    # HANetf
+    ("NATO.L",      "HANetf Future of Defence UCITS ETF",           "ETF", "hanetf"),
+    # Xtrackers / DWS
+    ("XDWS.L",      "Xtrackers MSCI World Consumer Staples ETF",    "ETF", "xtrackers"),
+    ("XWFS.L",      "Xtrackers MSCI World Financials ETF",    "ETF", "xtrackers"),
 
     # ── Commodity ETCs ───────────────────────────────────────────────────────
     ("GC=F",        "Gold Futures",                     "Commodity"),
@@ -138,10 +144,8 @@ YAHOO_TICKERS = [
     ("AIGA.L",      "WisdomTree Agriculture ETC",       "Commodity"),
 
     # ── Crypto ───────────────────────────────────────────────────────────────
-    ("BTC-GBP",     "Bitcoin GBP",                      "Crypto"),
-    ("ETH-GBP",     "Ethereum GBP",                     "Crypto"),
-    ("CBTC.L",      "21Shares Bitcoin Core ETP",         "Crypto"),
-    
+    ("BTC-GBP",     "Bitcoin GBP",                      "Commodity"),
+    ("ETH-GBP",     "Ethereum GBP",                     "Commodity"),
 
     # ── Individual Stocks — US ───────────────────────────────────────────────
     ("GOOG",        "Alphabet (Google)",                "Stock"),
@@ -168,7 +172,6 @@ YAHOO_TICKERS = [
     ("CCH.L",       "Coca-Cola HBC",                    "Stock"),
     ("GRG.L",       "Greggs plc",                       "Stock"),
     ("BA.L",        "BAE Systems",                      "Stock"),
-    ("AV.L",        "Aviva plc",                      "Stock"),
 
     # ── Individual Stocks — Turkey ───────────────────────────────────────────
     ("SAHOL.IS",    "Sabanci Holding",                  "Stock"),

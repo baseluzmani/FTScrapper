@@ -365,7 +365,8 @@ app.layout = html.Div([
                 ], style={'marginRight': '16px'}),
                 html.Div([
                     html.Label('From:', style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
-                    dcc.DatePickerSingle(id='txn-filter-from', display_format='DD MMM YYYY', placeholder='Start date'),
+                    dcc.DatePickerSingle(id='txn-filter-from', display_format='DD MMM YYYY', placeholder='Start date',
+                                         date=(datetime.today().replace(day=1)).strftime('%Y-%m-%d')),
                 ], style={'marginRight': '16px'}),
                 html.Div([
                     html.Label('To:', style={'fontSize': '11px', 'color': '#666', 'marginBottom': '4px', 'display': 'block'}),
