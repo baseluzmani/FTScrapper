@@ -115,7 +115,7 @@ def save_prices(conn, df):
     for _, row in df.iterrows():
         try:
             conn.execute("""
-                INSERT OR IGNORE INTO prices (fund_id, date, open, high, low, close, volume)
+                INSERT OR REPLACE INTO prices (fund_id, date, open, high, low, close, volume)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (row['fund_id'], row['date'], row['open'], row['high'], row['low'], row['close'], row['volume']))
         except Exception as e:
