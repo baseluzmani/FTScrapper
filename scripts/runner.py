@@ -1,77 +1,91 @@
 # runner.py
-# This is the entry point for the entire scraper.
-# It is the only file you run: python3 runner.py
-# Its job is to coordinate the other modules in the right order.
+# Entry point for the entire scraper.
+# Run: python3 runner.py
+# Optional flags:
+#   --no-holdings   skip holdings scrape (faster, prices only)
+#   --holdings-only skip price scrape, only update holdings
 
-import sys, os
+import sys, os, argparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 import database
 import scraper
 
 
-def process_fund(conn, fund):
-    fund_id = fund["id"]
-    fund_name = fund["name"]
+def process_fund(conn, fund, scrape_prices=True, scrape_holdings=True):
+    fund_id      = fund["id"]
+    holdings_id  = fund.get("holdings_id", fund_id)
+    fund_name    = fund["name"]
 
     print(f"\n{'='*50}")
     print(f"Processing: {fund_name}")
     print(f"Fund ID:    {fund_id}")
+    if holdings_id != fund_id:
+        print(f"Holdings ID:{holdings_id}  (override)")
     print(f"{'='*50}")
 
-    latest_date = database.get_latest_date(conn, fund_id)
+    # ── Price scrape ──────────────────────────────────────
+    if scrape_prices:
+        latest_date = database.get_latest_date(conn, fund_id)
+        if latest_date:
+            print(f"  Latest date in database: {latest_date}")
+        else:
+            print(f"  No existing data found — first run.")
 
-    if latest_date:
-        print(f"  Latest date in database: {latest_date}")
-    else:
-        print(f"  No existing data found — this is a first run.")
+        rows, fetched_name = scraper.scrape_fund(fund_id, fund_name, latest_date)
 
-    rows, fetched_name = scraper.scrape_fund(fund_id, fund_name, latest_date)
+        if rows:
+            saved = database.save_prices(conn, fund_id, fetched_name, rows, asset_type="Fund")
+            print(f"  Saved {saved} new price rows.")
+        else:
+            print(f"  No new price data.")
 
-    if rows:
-        saved = database.save_prices(
-            conn, fund_id, fetched_name, rows, asset_type="Fund"
-        )
-        print(f"  Saved {saved} new rows to database.")
-    else:
-        print(f"  No new data to save.")
+        database.update_fund_name(conn, fund_id, fetched_name)
+        print(f"  Fund name: {fetched_name}")
 
-    # Always update the name on all rows in case it changed
-    database.update_fund_name(conn, fund_id, fetched_name)
-    print(f"  Fund name: {fetched_name}")
+    # ── Holdings scrape ───────────────────────────────────
+    if scrape_holdings:
+        holdings = scraper.scrape_holdings(fund_id, holdings_id, fund_name)
+        if holdings:
+            saved = database.save_holdings(conn, fund_id, fund_name, holdings)
+            print(f"  Saved {saved} holding rows.")
+        else:
+            print(f"  No holdings data retrieved.")
 
 
 def main():
+    parser = argparse.ArgumentParser(description="FTScrapper runner")
+    parser.add_argument("--no-holdings",    action="store_true", help="Skip holdings scrape")
+    parser.add_argument("--holdings-only",  action="store_true", help="Skip price scrape")
+    args = parser.parse_args()
+
+    do_prices   = not args.holdings_only
+    do_holdings = not args.no_holdings
+
     print("FT Fund Scraper starting...")
-
-    # Open one database connection for the entire run
     conn = database.get_connection()
-
-    # Make sure the table exists (safe to call every time)
     database.create_table(conn)
+    database.create_holdings_table(conn)
 
-    # Process every fund in config.py
     for fund in config.FUNDS:
         try:
-            process_fund(conn, fund)
+            process_fund(conn, fund,
+                         scrape_prices=do_prices,
+                         scrape_holdings=do_holdings)
         except Exception as e:
             print(f"  ERROR processing {fund['name']}: {e}")
 
-    # Rebuild composite and calculated prices from fresh data
-    print("\nBuilding composite prices...")
-    try:
-        import build_composite_prices
-        build_composite_prices.main()
-    except Exception as e:
-        print(f"  ERROR building composites: {e}")
+    if do_prices:
+        print("\nBuilding composite prices...")
+        try:
+            import build_composite_prices
+            build_composite_prices.main()
+        except Exception as e:
+            print(f"  ERROR building composites: {e}")
 
-    # Close the database connection when all funds are done
     conn.close()
     print("\nAll done.")
 
 
-# This is a Python convention.
-# It means: only run main() if this file is executed directly.
-# If another file imports runner.py, main() won't run automatically.
 if __name__ == "__main__":
     main()

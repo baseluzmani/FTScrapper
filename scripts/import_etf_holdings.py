@@ -115,12 +115,13 @@ def already_imported(conn, etf_fund_id, scraped_date):
 
 
 def insert_holdings(conn, etf_fund_id, scraped_date, holdings):
-    # Ensure isin column exists (for ISIN-only providers like Xtrackers)
-    try:
-        conn.execute("ALTER TABLE etf_holdings ADD COLUMN isin TEXT")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass  # column already exists
+    # Ensure isin and sedol columns exist (for ISIN/SEDOL-only providers)
+    for col in ('isin TEXT', 'sedol TEXT'):
+        try:
+            conn.execute(f"ALTER TABLE etf_holdings ADD COLUMN {col}")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
     inserted = 0
     errors   = 0
@@ -137,13 +138,13 @@ def insert_holdings(conn, etf_fund_id, scraped_date, holdings):
             conn.execute("""
                 INSERT OR REPLACE INTO etf_holdings
                     (etf_fund_id, scraped_date, ticker, name, sector,
-                     asset_class, weight_pct, market_value, location, currency, isin)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     asset_class, weight_pct, market_value, location, currency, isin, sedol)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 etf_fund_id, scraped_date,
                 h.get('ticker'), h['name'], h.get('sector'),
                 h.get('asset_class'), h.get('weight_pct'), h.get('market_value'),
-                h.get('location'), h.get('currency'), h.get('isin'),
+                h.get('location'), h.get('currency'), h.get('isin'), h.get('sedol'),
             ))
             inserted += 1
         except Exception as e:
@@ -446,6 +447,119 @@ def parse_xtrackers_xlsx(filepath):
             'currency':     currency,
             'isin':         isin_val,
         })
+
+    return holdings, scraped_date
+
+
+def parse_globalx_csv(filepath):
+    """
+    Global X ETF holdings CSV — handles two formats:
+
+    Format A (top-holdings): headers on row 1
+      AS_OF_DATE, SEDOL, NAME, NET_ASSETS, TICKER, MARKET_PRICE, SHARES_HELD, MARKET_VALUE, ISIN, COUNTRY
+
+    Format B (full-holdings): multi-line header
+      Row 1: Fund name
+      Row 2: "Fund Holdings Data as of MM/DD/YYYY"
+      Row 3: % of Net Assets, Ticker, Name, SEDOL, Market Price, Shares Held, Market Value
+    """
+    holdings     = []
+    scraped_date = None
+
+    SKIP_NAMES = {'CASH', 'OTHER PAYABLE & RECEIVABLES', 'BRITISH STERLING POUND',
+                  'EURO', 'HONG KONG DOLLAR', 'JAPANESE YEN', 'US DOLLAR',
+                  'SINGAPORE DOLLAR', 'NORWEGIAN KRONE'}
+    SKIP_PREFIXES = ('CURRENCY CONTRACT',)
+
+    with open(filepath, 'r', encoding='utf-8-sig') as f:
+        lines = f.readlines()
+
+    if not lines:
+        return [], None
+
+    # Detect format by checking if first line looks like a header row
+    first = lines[0].strip()
+    if first.startswith('AS_OF_DATE'):
+        # Format A — standard CSV with headers on row 1
+        import io
+        reader = csv.DictReader(io.StringIO(''.join(lines)))
+        for row in reader:
+            name     = str(row.get('NAME', '') or '').strip()
+            sedol    = str(row.get('SEDOL', '') or '').strip()
+            isin_val = str(row.get('ISIN', '') or '').strip()
+            ticker   = str(row.get('TICKER', '') or '').strip()
+            country  = str(row.get('COUNTRY', '') or '').strip()
+            date_str = str(row.get('AS_OF_DATE', '') or '').strip()
+
+            if not scraped_date and date_str:
+                try:
+                    scraped_date = datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
+                except ValueError:
+                    pass
+
+            if not name or name.upper() in SKIP_NAMES:
+                continue
+            if any(name.upper().startswith(p) for p in SKIP_PREFIXES):
+                continue
+            if not sedol and not isin_val:
+                continue
+
+            try:
+                weight = float(row.get('NET_ASSETS', 0) or 0)
+            except (ValueError, TypeError):
+                weight = None
+
+            holdings.append({
+                'ticker': ticker, 'name': name, 'sector': None,
+                'asset_class': 'Equity', 'weight_pct': weight,
+                'market_value': None, 'location': country or None,
+                'currency': None, 'isin': isin_val or None, 'sedol': sedol or None,
+            })
+
+    else:
+        # Format B — multi-line header, date on row 2, headers on row 3
+        # Extract date from row 2: "Fund Holdings Data as of MM/DD/YYYY"
+        if len(lines) >= 2:
+            date_line = lines[1].strip()
+            m = re.search(r'(\d{2}/\d{2}/\d{4})', date_line)
+            if m:
+                try:
+                    scraped_date = datetime.strptime(m.group(1), '%m/%d/%Y').strftime('%Y-%m-%d')
+                except ValueError:
+                    pass
+
+        # Headers on row 3 (index 2)
+        import io
+        reader = csv.DictReader(io.StringIO(''.join(lines[2:])))
+        for row in reader:
+            name   = str(row.get('Name', '') or '').strip()
+            sedol  = str(row.get('SEDOL', '') or '').strip()
+            ticker = str(row.get('Ticker', '') or '').strip()
+
+            if not name or name.upper() in SKIP_NAMES:
+                continue
+            if any(name.upper().startswith(p) for p in SKIP_PREFIXES):
+                continue
+            if not sedol and not ticker:
+                continue
+
+            # Weight is "% of Net Assets" — may be negative for cash/FX
+            weight_str = str(row.get('% of Net Assets', '') or '').replace(',', '').strip()
+            try:
+                weight = float(weight_str)
+                if weight <= 0:
+                    continue  # skip cash/FX/short positions
+            except (ValueError, TypeError):
+                continue
+
+            sedol = sedol.strip('"').strip() if sedol else ''
+
+            holdings.append({
+                'ticker': ticker, 'name': name, 'sector': None,
+                'asset_class': 'Equity', 'weight_pct': weight,
+                'market_value': None, 'location': 'US',
+                'currency': None, 'isin': None, 'sedol': sedol or None,
+            })
 
     return holdings, scraped_date
 
@@ -1204,6 +1318,8 @@ def import_csv_files(conn):
             ext = filepath.suffix.lower()
             if ext == '.csv' and provider == 'wisdomtree':
                 holdings, scraped_date = parse_wisdomtree_csv(str(filepath))
+            elif ext == '.csv' and provider == 'globalx':
+                holdings, scraped_date = parse_globalx_csv(str(filepath))
             elif ext == '.csv':
                 holdings, scraped_date = parse_ishares_csv(str(filepath))
             elif ext == '.xlsx' and provider == 'hanetf':

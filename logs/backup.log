@@ -549,3 +549,283 @@ Backups kept: 7
   funds_2026-06-23.db (20.8 MB)
   funds_2026-06-24.db (20.8 MB)
   funds_2026-06-25.db (20.8 MB)
+Backup created: data/backups/funds_2026-06-26.db (20.8 MB)
+Deleted old backup: data/backups/funds_2026-06-19.db
+Backups kept: 7
+  funds_2026-06-20.db (20.8 MB)
+  funds_2026-06-21.db (20.8 MB)
+  funds_2026-06-22.db (20.8 MB)
+  funds_2026-06-23.db (20.8 MB)
+  funds_2026-06-24.db (20.8 MB)
+  funds_2026-06-25.db (20.8 MB)
+  funds_2026-06-26.db (20.8 MB)
+Backup created: data/backups/funds_2026-06-27.db (20.8 MB)
+Deleted old backup: data/backups/funds_2026-06-20.db
+Backups kept: 7
+  funds_2026-06-21.db (20.8 MB)
+  funds_2026-06-22.db (20.8 MB)
+  funds_2026-06-23.db (20.8 MB)
+  funds_2026-06-24.db (20.8 MB)
+  funds_2026-06-25.db (20.8 MB)
+  funds_2026-06-26.db (20.8 MB)
+  funds_2026-06-27.db (20.8 MB)
+Backup created: data/backups/funds_2026-06-28.db (20.8 MB)
+Deleted old backup: data/backups/funds_2026-06-21.db
+Backups kept: 7
+  funds_2026-06-22.db (20.8 MB)
+  funds_2026-06-23.db (20.8 MB)
+  funds_2026-06-24.db (20.8 MB)
+  funds_2026-06-25.db (20.8 MB)
+  funds_2026-06-26.db (20.8 MB)
+  funds_2026-06-27.db (20.8 MB)
+  funds_2026-06-28.db (20.8 MB)
+Backup created: data/backups/funds_2026-06-29.db (21.1 MB)
+Deleted old backup: data/backups/funds_2026-06-22.db
+Backups kept: 7
+  funds_2026-06-23.db (20.8 MB)
+  funds_2026-06-24.db (20.8 MB)
+  funds_2026-06-25.db (20.8 MB)
+  funds_2026-06-26.db (20.8 MB)
+  funds_2026-06-27.db (20.8 MB)
+  funds_2026-06-28.db (20.8 MB)
+  funds_2026-06-29.db (21.1 MB)
+Backup created: data/backups/funds_2026-06-30.db (21.2 MB)
+Deleted old backup: data/backups/funds_2026-06-23.db
+Backups kept: 7
+  funds_2026-06-24.db (20.8 MB)
+  funds_2026-06-25.db (20.8 MB)
+  funds_2026-06-26.db (20.8 MB)
+  funds_2026-06-27.db (20.8 MB)
+  funds_2026-06-28.db (20.8 MB)
+  funds_2026-06-29.db (21.1 MB)
+  funds_2026-06-30.db (21.2 MB)
+Backup created: data/backups/funds_2026-07-01.db (21.2 MB)
+Deleted old backup: data/backups/funds_2026-06-24.db
+Backups kept: 7
+  funds_2026-06-25.db (20.8 MB)
+  funds_2026-06-26.db (20.8 MB)
+  funds_2026-06-27.db (20.8 MB)
+  funds_2026-06-28.db (20.8 MB)
+  funds_2026-06-29.db (21.1 MB)
+  funds_2026-06-30.db (21.2 MB)
+  funds_2026-07-01.db (21.2 MB)
+Backup created: data/backups/funds_2026-07-02.db (21.7 MB)
+Deleted old backup: data/backups/funds_2026-06-25.db
+Backups kept: 7
+  funds_2026-06-26.db (20.8 MB)
+  funds_2026-06-27.db (20.8 MB)
+  funds_2026-06-28.db (20.8 MB)
+  funds_2026-06-29.db (21.1 MB)
+  funds_2026-06-30.db (21.2 MB)
+  funds_2026-07-01.db (21.2 MB)
+  funds_2026-07-02.db (21.7 MB)
+Backup created: data/backups/funds_2026-07-03.db (22.6 MB)
+Deleted old backup: data/backups/funds_2026-06-26.db
+Backups kept: 7
+  funds_2026-06-27.db (20.8 MB)
+  funds_2026-06-28.db (20.8 MB)
+  funds_2026-06-29.db (21.1 MB)
+  funds_2026-06-30.db (21.2 MB)
+  funds_2026-07-01.db (21.2 MB)
+  funds_2026-07-02.db (21.7 MB)
+  funds_2026-07-03.db (22.6 MB)
+Backup created: data/backups/funds_2026-07-04.db (22.6 MB)
+Deleted old backup: data/backups/funds_2026-06-27.db
+Backups kept: 7
+  funds_2026-06-28.db (20.8 MB)
+  funds_2026-06-29.db (21.1 MB)
+  funds_2026-06-30.db (21.2 MB)
+  funds_2026-07-01.db (21.2 MB)
+  funds_2026-07-02.db (21.7 MB)
+  funds_2026-07-03.db (22.6 MB)
+  funds_2026-07-04.db (22.6 MB)
+Backup created: data/backups/funds_2026-07-05.db (22.6 MB)
+Deleted old backup: data/backups/funds_2026-06-28.db
+Backups kept: 7
+  funds_2026-06-29.db (21.1 MB)
+  funds_2026-06-30.db (21.2 MB)
+  funds_2026-07-01.db (21.2 MB)
+  funds_2026-07-02.db (21.7 MB)
+  funds_2026-07-03.db (22.6 MB)
+  funds_2026-07-04.db (22.6 MB)
+  funds_2026-07-05.db (22.6 MB)
+Backup created: data/backups/funds_2026-07-06.db (22.7 MB)
+Deleted old backup: data/backups/funds_2026-06-29.db
+Backups kept: 7
+  funds_2026-06-30.db (21.2 MB)
+  funds_2026-07-01.db (21.2 MB)
+  funds_2026-07-02.db (21.7 MB)
+  funds_2026-07-03.db (22.6 MB)
+  funds_2026-07-04.db (22.6 MB)
+  funds_2026-07-05.db (22.6 MB)
+  funds_2026-07-06.db (22.7 MB)
+Backup created: data/backups/funds_2026-07-07.db (22.7 MB)
+Deleted old backup: data/backups/funds_2026-06-30.db
+Backups kept: 7
+  funds_2026-07-01.db (21.2 MB)
+  funds_2026-07-02.db (21.7 MB)
+  funds_2026-07-03.db (22.6 MB)
+  funds_2026-07-04.db (22.6 MB)
+  funds_2026-07-05.db (22.6 MB)
+  funds_2026-07-06.db (22.7 MB)
+  funds_2026-07-07.db (22.7 MB)
+Backup created: data/backups/funds_2026-07-08.db (23.0 MB)
+Deleted old backup: data/backups/funds_2026-07-01.db
+Backups kept: 7
+  funds_2026-07-02.db (21.7 MB)
+  funds_2026-07-03.db (22.6 MB)
+  funds_2026-07-04.db (22.6 MB)
+  funds_2026-07-05.db (22.6 MB)
+  funds_2026-07-06.db (22.7 MB)
+  funds_2026-07-07.db (22.7 MB)
+  funds_2026-07-08.db (23.0 MB)
+Backup created: data/backups/funds_2026-07-09.db (23.0 MB)
+Deleted old backup: data/backups/funds_2026-07-02.db
+Backups kept: 7
+  funds_2026-07-03.db (22.6 MB)
+  funds_2026-07-04.db (22.6 MB)
+  funds_2026-07-05.db (22.6 MB)
+  funds_2026-07-06.db (22.7 MB)
+  funds_2026-07-07.db (22.7 MB)
+  funds_2026-07-08.db (23.0 MB)
+  funds_2026-07-09.db (23.0 MB)
+Backup created: data/backups/funds_2026-07-10.db (23.1 MB)
+Deleted old backup: data/backups/funds_2026-07-03.db
+Backups kept: 7
+  funds_2026-07-04.db (22.6 MB)
+  funds_2026-07-05.db (22.6 MB)
+  funds_2026-07-06.db (22.7 MB)
+  funds_2026-07-07.db (22.7 MB)
+  funds_2026-07-08.db (23.0 MB)
+  funds_2026-07-09.db (23.0 MB)
+  funds_2026-07-10.db (23.1 MB)
+Backup created: data/backups/funds_2026-07-11.db (23.1 MB)
+Deleted old backup: data/backups/funds_2026-07-04.db
+Backups kept: 7
+  funds_2026-07-05.db (22.6 MB)
+  funds_2026-07-06.db (22.7 MB)
+  funds_2026-07-07.db (22.7 MB)
+  funds_2026-07-08.db (23.0 MB)
+  funds_2026-07-09.db (23.0 MB)
+  funds_2026-07-10.db (23.1 MB)
+  funds_2026-07-11.db (23.1 MB)
+Backup created: data/backups/funds_2026-07-12.db (23.4 MB)
+Deleted old backup: data/backups/funds_2026-07-05.db
+Backups kept: 7
+  funds_2026-07-06.db (22.7 MB)
+  funds_2026-07-07.db (22.7 MB)
+  funds_2026-07-08.db (23.0 MB)
+  funds_2026-07-09.db (23.0 MB)
+  funds_2026-07-10.db (23.1 MB)
+  funds_2026-07-11.db (23.1 MB)
+  funds_2026-07-12.db (23.4 MB)
+Backup created: data/backups/funds_2026-07-13.db (23.6 MB)
+Deleted old backup: data/backups/funds_2026-07-06.db
+Backups kept: 7
+  funds_2026-07-07.db (22.7 MB)
+  funds_2026-07-08.db (23.0 MB)
+  funds_2026-07-09.db (23.0 MB)
+  funds_2026-07-10.db (23.1 MB)
+  funds_2026-07-11.db (23.1 MB)
+  funds_2026-07-12.db (23.4 MB)
+  funds_2026-07-13.db (23.6 MB)
+Backup created: data/backups/funds_2026-07-14.db (23.7 MB)
+Deleted old backup: data/backups/funds_2026-07-07.db
+Backups kept: 7
+  funds_2026-07-08.db (23.0 MB)
+  funds_2026-07-09.db (23.0 MB)
+  funds_2026-07-10.db (23.1 MB)
+  funds_2026-07-11.db (23.1 MB)
+  funds_2026-07-12.db (23.4 MB)
+  funds_2026-07-13.db (23.6 MB)
+  funds_2026-07-14.db (23.7 MB)
+Backup created: data/backups/funds_2026-07-15.db (24.1 MB)
+Deleted old backup: data/backups/funds_2026-07-08.db
+Backups kept: 7
+  funds_2026-07-09.db (23.0 MB)
+  funds_2026-07-10.db (23.1 MB)
+  funds_2026-07-11.db (23.1 MB)
+  funds_2026-07-12.db (23.4 MB)
+  funds_2026-07-13.db (23.6 MB)
+  funds_2026-07-14.db (23.7 MB)
+  funds_2026-07-15.db (24.1 MB)
+Backup created: data/backups/funds_2026-07-16.db (24.4 MB)
+Deleted old backup: data/backups/funds_2026-07-09.db
+Backups kept: 7
+  funds_2026-07-10.db (23.1 MB)
+  funds_2026-07-11.db (23.1 MB)
+  funds_2026-07-12.db (23.4 MB)
+  funds_2026-07-13.db (23.6 MB)
+  funds_2026-07-14.db (23.7 MB)
+  funds_2026-07-15.db (24.1 MB)
+  funds_2026-07-16.db (24.4 MB)
+Backup created: data/backups/funds_2026-07-17.db (24.5 MB)
+Deleted old backup: data/backups/funds_2026-07-10.db
+Backups kept: 7
+  funds_2026-07-11.db (23.1 MB)
+  funds_2026-07-12.db (23.4 MB)
+  funds_2026-07-13.db (23.6 MB)
+  funds_2026-07-14.db (23.7 MB)
+  funds_2026-07-15.db (24.1 MB)
+  funds_2026-07-16.db (24.4 MB)
+  funds_2026-07-17.db (24.5 MB)
+Backup created: data/backups/funds_2026-07-18.db (24.6 MB)
+Deleted old backup: data/backups/funds_2026-07-11.db
+Backups kept: 7
+  funds_2026-07-12.db (23.4 MB)
+  funds_2026-07-13.db (23.6 MB)
+  funds_2026-07-14.db (23.7 MB)
+  funds_2026-07-15.db (24.1 MB)
+  funds_2026-07-16.db (24.4 MB)
+  funds_2026-07-17.db (24.5 MB)
+  funds_2026-07-18.db (24.6 MB)
+Backup created: data/backups/funds_2026-07-19.db (24.6 MB)
+Deleted old backup: data/backups/funds_2026-07-12.db
+Backups kept: 7
+  funds_2026-07-13.db (23.6 MB)
+  funds_2026-07-14.db (23.7 MB)
+  funds_2026-07-15.db (24.1 MB)
+  funds_2026-07-16.db (24.4 MB)
+  funds_2026-07-17.db (24.5 MB)
+  funds_2026-07-18.db (24.6 MB)
+  funds_2026-07-19.db (24.6 MB)
+Backup created: data/backups/funds_2026-07-20.db (24.7 MB)
+Deleted old backup: data/backups/funds_2026-07-13.db
+Backups kept: 7
+  funds_2026-07-14.db (23.7 MB)
+  funds_2026-07-15.db (24.1 MB)
+  funds_2026-07-16.db (24.4 MB)
+  funds_2026-07-17.db (24.5 MB)
+  funds_2026-07-18.db (24.6 MB)
+  funds_2026-07-19.db (24.6 MB)
+  funds_2026-07-20.db (24.7 MB)
+Backup created: data/backups/funds_2026-07-21.db (24.8 MB)
+Deleted old backup: data/backups/funds_2026-07-14.db
+Backups kept: 7
+  funds_2026-07-15.db (24.1 MB)
+  funds_2026-07-16.db (24.4 MB)
+  funds_2026-07-17.db (24.5 MB)
+  funds_2026-07-18.db (24.6 MB)
+  funds_2026-07-19.db (24.6 MB)
+  funds_2026-07-20.db (24.7 MB)
+  funds_2026-07-21.db (24.8 MB)
+Backup created: data/backups/funds_2026-07-22.db (25.1 MB)
+Deleted old backup: data/backups/funds_2026-07-15.db
+Backups kept: 7
+  funds_2026-07-16.db (24.4 MB)
+  funds_2026-07-17.db (24.5 MB)
+  funds_2026-07-18.db (24.6 MB)
+  funds_2026-07-19.db (24.6 MB)
+  funds_2026-07-20.db (24.7 MB)
+  funds_2026-07-21.db (24.8 MB)
+  funds_2026-07-22.db (25.1 MB)
+Backup created: data/backups/funds_2026-07-23.db (25.2 MB)
+Deleted old backup: data/backups/funds_2026-07-16.db
+Backups kept: 7
+  funds_2026-07-17.db (24.5 MB)
+  funds_2026-07-18.db (24.6 MB)
+  funds_2026-07-19.db (24.6 MB)
+  funds_2026-07-20.db (24.7 MB)
+  funds_2026-07-21.db (24.8 MB)
+  funds_2026-07-22.db (25.1 MB)
+  funds_2026-07-23.db (25.2 MB)

@@ -117,7 +117,7 @@ def save_prices(conn, df):
             conn.execute("""
                 INSERT OR REPLACE INTO prices (fund_id, date, open, high, low, close, volume)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (row['fund_id'], row['date'], row['open'], row['high'], row['low'], row['close'], row['volume']))
+            """, (row['fund_id'], str(row['date'])[:10], row['open'], row['high'], row['low'], row['close'], row['volume']))
         except Exception as e:
             print(f"  Error saving {row['fund_id']} {row['date']}: {e}")
     
@@ -145,6 +145,9 @@ def main():
             subset = df_comp[df_comp['fund_id'] == fid]
             print(f"    {fid}: {len(subset)} rows, {subset['date'].min()} → {subset['date'].max()}")
     
+    saved = save_prices(conn, df_comp)
+    print(f"  {saved} new rows saved to DB")
+
     conn.close()
     print(f"\nDone.")
 

@@ -168,12 +168,15 @@ def get_consolidated_holdings(etf_id, date):
     df    = pd.concat([raw, extra], axis=1)
 
     def agg_group(g):
-        heaviest = g.loc[g['weight_pct'].idxmax()]
+        if g['weight_pct'].notna().any():
+            heaviest = g.loc[g['weight_pct'].idxmax()]
+        else:
+            heaviest = g.iloc[0]
         return pd.Series({
             'name':         heaviest['canonical_name'],
             'sector':       heaviest['sector'],
             'asset_class':  heaviest['asset_class'],
-            'weight_pct':   g['weight_pct'].sum(),
+            'weight_pct':   g['weight_pct'].sum() if g['weight_pct'].notna().any() else None,
             'market_value': g['market_value'].sum() if g['market_value'].notna().any() else None,
             'location':     heaviest['location'],
             'currency':     heaviest['currency'],
@@ -225,6 +228,11 @@ except ImportError:
     ETF_NAME_MAP = {}
     ETF_PROVIDER_DISPLAY = {}
 
+try:
+    from config import COMPOSITE_FUNDS
+except ImportError:
+    COMPOSITE_FUNDS = []
+
 ensure_sources_table()
 etf_list    = get_etf_list()
 etf_options = [{'label': ETF_NAME_MAP.get(e, short_name(e)), 'value': e} for e in etf_list]
@@ -244,8 +252,10 @@ app.layout = html.Div([
         dcc.Tab(label='OVERLAP',    value='tab-overlap',   style=TAB_STYLE, selected_style=TAB_SELECTED),
         dcc.Tab(label='CHANGES',    value='tab-changes',   style=TAB_STYLE, selected_style=TAB_SELECTED),
         dcc.Tab(label='COMPARE',    value='tab-compare',   style=TAB_STYLE, selected_style=TAB_SELECTED),
-        dcc.Tab(label='TICKER MAP', value='tab-mapping',   style=TAB_STYLE, selected_style=TAB_SELECTED),
-        dcc.Tab(label='SOURCES',    value='tab-sources',   style=TAB_STYLE, selected_style=TAB_SELECTED),
+        dcc.Tab(label='TICKER MAP',    value='tab-mapping',      style=TAB_STYLE, selected_style=TAB_SELECTED),
+        dcc.Tab(label='SOURCES',       value='tab-sources',      style=TAB_STYLE, selected_style=TAB_SELECTED),
+        dcc.Tab(label='FUNDS',         value='tab-pension',      style=TAB_STYLE, selected_style=TAB_SELECTED),
+        dcc.Tab(label='FUND COMPARE',  value='tab-fund-compare', style=TAB_STYLE, selected_style=TAB_SELECTED),
     ], style={'backgroundColor': NAVY}),
 
     # ── HOLDINGS TAB
@@ -430,21 +440,78 @@ app.layout = html.Div([
         dcc.Store(id='src-refresh-trigger', data=0),
     ], id='tab-sources-content', style={'display': 'none', 'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}),
 
+    # ── PENSION TAB
+    html.Div([
+        html.Div([
+            html.Div([
+                html.Label('Fund', style={'fontSize': '10px', 'color': '#888', 'fontWeight': '600',
+                                          'display': 'block', 'marginBottom': '4px'}),
+                dcc.Dropdown(id='pen-fund-select', placeholder='Select pension fund…',
+                             style={'fontSize': '13px', 'minWidth': '320px'}),
+            ], style={'marginRight': '16px'}),
+            html.Div(id='pen-date-info', style={'fontSize': '11px', 'color': '#aaa',
+                                                 'alignSelf': 'flex-end', 'paddingBottom': '6px'}),
+        ], style={'display': 'flex', 'alignItems': 'flex-end', 'marginBottom': '12px'}),
+        html.Div([
+            html.P('TOP 10 HOLDINGS', style=SECTION_TITLE),
+            html.Div(id='pen-top10-table'),
+        ], style=CARD),
+        dcc.Store(id='pen-refresh-trigger', data=0),
+    ], id='tab-pension-content', style={'display': 'none', 'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}),
+
+    # ── FUND COMPARE TAB
+    html.Div([
+        # Selectors row
+        html.Div([
+            html.Div([
+                html.Label('Fund / ETF A', style={'fontSize': '10px', 'color': '#888',
+                                                   'fontWeight': '600', 'display': 'block', 'marginBottom': '4px'}),
+                dcc.Dropdown(id='fc-select-a', placeholder='Select fund or ETF…',
+                             style={'fontSize': '13px', 'minWidth': '280px'}),
+            ], style={'marginRight': '16px'}),
+            html.Div([
+                html.Label('Fund / ETF B', style={'fontSize': '10px', 'color': '#888',
+                                                   'fontWeight': '600', 'display': 'block', 'marginBottom': '4px'}),
+                dcc.Dropdown(id='fc-select-b', placeholder='Select fund or ETF…',
+                             style={'fontSize': '13px', 'minWidth': '280px'}),
+            ]),
+            html.Div(id='fc-date-info', style={'fontSize': '11px', 'color': '#aaa',
+                                                'alignSelf': 'flex-end', 'paddingBottom': '6px',
+                                                'marginLeft': '16px'}),
+        ], style={'display': 'flex', 'alignItems': 'flex-end', 'marginBottom': '12px'}),
+
+        # Side by side top 10 tables
+        html.Div([
+            html.Div([
+                html.P(id='fc-title-a', style={**SECTION_TITLE, 'color': ACCENT}),
+                html.Div(id='fc-table-a'),
+            ], style={**CARD, 'flex': '1', 'marginRight': '8px',
+                      'borderLeft': f'3px solid {ACCENT}'}),
+            html.Div([
+                html.P(id='fc-title-b', style={**SECTION_TITLE, 'color': ORANGE}),
+                html.Div(id='fc-table-b'),
+            ], style={**CARD, 'flex': '1', 'borderLeft': f'3px solid {ORANGE}'}),
+        ], style={'display': 'flex', 'gap': '8px'}),
+
+    ], id='tab-fund-compare-content', style={'display': 'none', 'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}),
+
 ], style={'fontFamily': 'system-ui, -apple-system, sans-serif', 'backgroundColor': GREY, 'minHeight': '100vh'})
 
 
 # ── TAB SWITCHER ──────────────────────────────────────────────────────────────
 
 @app.callback(
-    Output('tab-holdings-content', 'style'), Output('tab-overlap-content',  'style'),
-    Output('tab-changes-content',  'style'), Output('tab-compare-content',  'style'),
-    Output('tab-mapping-content',  'style'), Output('tab-sources-content', 'style'),
+    Output('tab-holdings-content',     'style'), Output('tab-overlap-content',      'style'),
+    Output('tab-changes-content',      'style'), Output('tab-compare-content',      'style'),
+    Output('tab-mapping-content',      'style'), Output('tab-sources-content',      'style'),
+    Output('tab-pension-content',      'style'), Output('tab-fund-compare-content', 'style'),
     Input('etf-tabs', 'value'),
 )
 def switch_tab(tab):
     show = {'display': 'block', 'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}
     hide = {'display': 'none',  'padding': '16px', 'maxWidth': '1400px', 'margin': '0 auto'}
-    tabs = ['tab-holdings', 'tab-overlap', 'tab-changes', 'tab-compare', 'tab-mapping', 'tab-sources']
+    tabs = ['tab-holdings', 'tab-overlap', 'tab-changes', 'tab-compare',
+            'tab-mapping', 'tab-sources', 'tab-pension', 'tab-fund-compare']
     return tuple(show if tab == t else hide for t in tabs)
 
 
@@ -1510,6 +1577,288 @@ def save_source_url(n_clicks_list, url_values, url_ids, current_trigger):
                'borderRadius': '4px', 'fontSize': '12px', 'fontWeight': '600',
                'border': f'1px solid {GREEN}'})
     return current_trigger + 1, feedback
+
+
+# ── PENSION CALLBACKS ─────────────────────────────────────────────────────────
+
+def get_pension_conn():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def get_pension_funds():
+    """Return list of funds that have holdings data."""
+    conn = get_pension_conn()
+    rows = conn.execute("""
+        SELECT DISTINCT fund_id, fund_name
+        FROM pension_holdings
+        ORDER BY fund_name
+    """).fetchall()
+    conn.close()
+    return rows
+
+@app.callback(
+    Output('pen-fund-select', 'options'),
+    Output('pen-fund-select', 'value'),
+    Input('pen-refresh-trigger', 'data'),
+)
+def load_pension_funds(_):
+    funds = get_pension_funds()
+    options = [{'label': name, 'value': fid} for fid, name in funds]
+    value   = funds[0][0] if funds else None
+    return options, value
+
+
+@app.callback(
+    Output('pen-top10-table',  'children'),
+    Output('pen-date-info',    'children'),
+    Input('pen-fund-select',   'value'),
+    Input('pen-refresh-trigger', 'data'),
+)
+def render_pension_top10(fund_id, _):
+    if not fund_id:
+        return html.Div('No data yet — run python3 scripts/runner.py to scrape holdings.',
+                        style={'color': '#aaa', 'fontSize': '12px', 'padding': '20px'}), ''
+
+    conn = get_pension_conn()
+    latest = conn.execute(
+        "SELECT MAX(scraped_date) FROM pension_holdings WHERE fund_id = ?", (fund_id,)
+    ).fetchone()[0]
+
+    if not latest:
+        conn.close()
+        return html.Div('No holdings data for this fund.', style={'color': '#aaa', 'fontSize': '12px'}), ''
+
+    rows = conn.execute("""
+        SELECT rank, name, ticker, weight_pct
+        FROM pension_holdings
+        WHERE fund_id = ? AND scraped_date = ?
+        ORDER BY rank
+    """, (fund_id, latest)).fetchall()
+    conn.close()
+
+    if not rows:
+        return html.Div('No holdings.', style={'color': '#aaa', 'fontSize': '12px'}), ''
+
+    date_info = f"As of {latest}"
+    top10_w   = sum(r['weight_pct'] for r in rows if r['weight_pct'])
+
+    trows = []
+    for r in rows:
+        trows.append(html.Tr([
+            html.Td(str(r['rank']),  style={'padding': '6px 8px', 'color': '#aaa',
+                                             'width': '28px', 'fontSize': '11px'}),
+            html.Td(r['name'],       style={'padding': '6px 8px', 'fontSize': '12px', 'color': BLUE}),
+            html.Td(r['ticker'] or '—', style={'padding': '6px 8px', 'fontSize': '10px',
+                                                'color': '#999', 'fontFamily': 'monospace'}),
+            html.Td(fmt_w(r['weight_pct']), style={'padding': '6px 8px', 'fontSize': '11px',
+                                                    'textAlign': 'right', 'fontFamily': 'monospace',
+                                                    'fontWeight': '600', 'color': ACCENT}),
+        ], style={'borderBottom': '1px solid #f0f3f7', 'backgroundColor': WHITE if r['rank'] % 2 else '#f9fbfd'}))
+
+    trows.append(html.Tr([
+        html.Td('', colSpan=3),
+        html.Td(f"Top 10: {top10_w:.1f}%", style={'padding': '6px 8px', 'fontSize': '11px',
+                                                    'textAlign': 'right', 'fontWeight': '700',
+                                                    'color': BLUE, 'borderTop': '2px solid #e8ecf0'}),
+    ]))
+
+    table = html.Table([
+        html.Thead(html.Tr([th('#'), th('Company'), th('Ticker'), th('Weight', 'right')])),
+        html.Tbody(trows),
+    ], style={'width': '100%', 'borderCollapse': 'collapse'})
+
+    return table, date_info
+
+
+# ── FUND COMPARE CALLBACKS ────────────────────────────────────────────────────
+
+def get_composite_holdings(composite):
+    """
+    Compute blended holdings for a composite fund.
+    Returns list of dicts: rank, name, ticker, weight_pct
+    weighted by each component's allocation weight.
+    All holdings included (not just top 10).
+    """
+    merged = {}  # name → {weight, ticker}
+    conn   = get_pension_conn()
+
+    for comp in composite['components']:
+        fund_id    = comp['fund_id']
+        comp_weight = comp['weight']
+
+        latest = conn.execute(
+            "SELECT MAX(scraped_date) FROM pension_holdings WHERE fund_id = ?", (fund_id,)
+        ).fetchone()[0]
+        if not latest:
+            continue
+
+        rows = conn.execute("""
+            SELECT name, ticker, weight_pct FROM pension_holdings
+            WHERE fund_id = ? AND scraped_date = ?
+        """, (fund_id, latest)).fetchall()
+
+        for r in rows:
+            if not r['weight_pct']:
+                continue
+            key = r['name'].strip()
+            contribution = comp_weight * r['weight_pct']
+            if key not in merged:
+                merged[key] = {'weight': 0.0, 'ticker': r['ticker'] or ''}
+            merged[key]['weight'] += contribution
+
+    conn.close()
+
+    sorted_holdings = sorted(merged.items(), key=lambda x: x[1]['weight'], reverse=True)
+    return [{'rank': i+1, 'name': name, 'ticker': data['ticker'],
+             'weight_pct': round(data['weight'], 2)}
+            for i, (name, data) in enumerate(sorted_holdings)]
+
+
+def get_all_fund_options():
+    """Return combined dropdown options: composites + pension funds + ETFs."""
+    conn = get_pension_conn()
+    pension = conn.execute("""
+        SELECT DISTINCT fund_id, fund_name FROM pension_holdings ORDER BY fund_name
+    """).fetchall()
+    conn.close()
+
+    composite_options = [{'label': f"COMPOSITE: {c['display_name']}", 'value': f"COMPOSITE:{c['fund_id']}"}
+                         for c in COMPOSITE_FUNDS]
+    fund_options      = [{'label': f"FUND: {row['fund_name']}", 'value': f"FUND:{row['fund_id']}"}
+                         for row in pension]
+    etf_options       = [{'label': f"ETF: {v}", 'value': f"ETF:{k}"}
+                         for k, v in ETF_NAME_MAP.items()]
+    return composite_options + fund_options + etf_options
+
+
+def get_top10_for_selection(selection):
+    """
+    Return holdings for a given selection string.
+    Prefix: 'COMPOSITE:...', 'FUND:...', or 'ETF:...'
+    For composites and funds returns ALL holdings (not capped at 10).
+    For ETFs returns top 10 only (that's all we have from holdings import).
+    Returns: (holdings_list, display_name, date_str)
+    """
+    if not selection:
+        return [], '—', '—'
+
+    if selection.startswith('COMPOSITE:'):
+        comp_id = selection[10:]
+        # Find composite definition — strip the leading COMPOSITE: prefix from fund_id
+        comp = next((c for c in COMPOSITE_FUNDS
+                     if c['fund_id'] == comp_id or c['fund_id'] == f"COMPOSITE:{comp_id}"), None)
+        if not comp:
+            return [], comp_id, '—'
+        holdings = get_composite_holdings(comp)
+        return holdings, comp['display_name'], 'blended'
+
+    if selection.startswith('FUND:'):
+        fund_id = selection[5:]
+        conn    = get_pension_conn()
+        latest  = conn.execute(
+            "SELECT MAX(scraped_date) FROM pension_holdings WHERE fund_id = ?", (fund_id,)
+        ).fetchone()[0]
+        if not latest:
+            conn.close()
+            return [], fund_id, '—'
+        rows = conn.execute("""
+            SELECT rank, name, ticker, weight_pct FROM pension_holdings
+            WHERE fund_id = ? AND scraped_date = ? ORDER BY rank
+        """, (fund_id, latest)).fetchall()
+        fname = conn.execute(
+            "SELECT fund_name FROM pension_holdings WHERE fund_id = ? LIMIT 1", (fund_id,)
+        ).fetchone()['fund_name']
+        conn.close()
+        return [dict(r) for r in rows], fname, latest
+
+    if selection.startswith('ETF:'):
+        etf_id = selection[4:]
+        date   = get_latest_date_etf(etf_id)
+        if not date:
+            return [], ETF_NAME_MAP.get(etf_id, etf_id), '—'
+        df = get_consolidated_holdings(etf_id, date)
+        top10 = df.sort_values('weight_pct', ascending=False).head(10)
+        holdings = [{'rank': i+1, 'name': r['name'],
+                     'ticker': str(r['canonical_id'])[:14],
+                     'weight_pct': r['weight_pct']}
+                    for i, (_, r) in enumerate(top10.iterrows())]
+        return holdings, ETF_NAME_MAP.get(etf_id, etf_id), date
+
+    return [], '—', '—'
+
+
+def get_latest_date_etf(etf_id):
+    conn = get_conn()
+    row  = conn.execute(
+        "SELECT MAX(scraped_date) FROM etf_holdings WHERE etf_fund_id = ?", (etf_id,)
+    ).fetchone()
+    conn.close()
+    return row[0] if row and row[0] else None
+
+
+def build_fc_table(holdings, color):
+    if not holdings:
+        return html.Div('No data available.', style={'color': '#aaa', 'fontSize': '12px', 'padding': '12px'})
+    rows = []
+    for h in holdings:
+        rows.append(html.Tr([
+            html.Td(str(h['rank']), style={'padding': '5px 8px', 'color': '#aaa',
+                                            'width': '24px', 'fontSize': '11px'}),
+            html.Td(h['name'], style={'padding': '5px 8px', 'fontSize': '12px', 'color': BLUE}),
+            html.Td(str(h.get('ticker') or '—')[:14],
+                    style={'padding': '5px 8px', 'fontSize': '10px',
+                           'color': '#999', 'fontFamily': 'monospace'}),
+            html.Td(fmt_w(h['weight_pct']), style={'padding': '5px 8px', 'fontSize': '11px',
+                                                    'textAlign': 'right', 'fontFamily': 'monospace',
+                                                    'fontWeight': '600', 'color': color}),
+        ], style={'borderBottom': '1px solid #f0f3f7',
+                  'backgroundColor': WHITE if h['rank'] % 2 else '#f9fbfd'}))
+
+    total_w = sum(h['weight_pct'] for h in holdings if h.get('weight_pct'))
+    rows.append(html.Tr([
+        html.Td('', colSpan=3),
+        html.Td(f"Total: {total_w:.1f}%",
+                style={'padding': '6px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                       'fontWeight': '700', 'color': BLUE, 'borderTop': '2px solid #e8ecf0'}),
+    ]))
+    table = html.Table([
+        html.Thead(html.Tr([th('#'), th('Company'), th('Ticker / FIGI'), th('Weight', 'right')])),
+        html.Tbody(rows),
+    ], style={'width': '100%', 'borderCollapse': 'collapse'})
+
+    # Scrollable container for long lists
+    return html.Div(table, style={'maxHeight': '600px', 'overflowY': 'auto'})
+
+
+@app.callback(
+    Output('fc-select-a', 'options'), Output('fc-select-a', 'value'),
+    Output('fc-select-b', 'options'), Output('fc-select-b', 'value'),
+    Input('pen-refresh-trigger', 'data'),
+)
+def load_fc_options(_):
+    options = get_all_fund_options()
+    return options, None, options, None
+
+
+@app.callback(
+    Output('fc-title-a',  'children'), Output('fc-table-a',   'children'),
+    Output('fc-title-b',  'children'), Output('fc-table-b',   'children'),
+    Output('fc-date-info','children'),
+    Input('fc-select-a',  'value'),
+    Input('fc-select-b',  'value'),
+)
+def render_fund_compare(sel_a, sel_b):
+    holdings_a, name_a, date_a = get_top10_for_selection(sel_a)
+    holdings_b, name_b, date_b = get_top10_for_selection(sel_b)
+
+    title_a = f"TOP 10 — {name_a}"
+    title_b = f"TOP 10 — {name_b}"
+    date_info = f"As of: {name_a}: {date_a}  |  {name_b}: {date_b}" if sel_a and sel_b else ''
+
+    return (title_a, build_fc_table(holdings_a, ACCENT),
+            title_b, build_fc_table(holdings_b, ORANGE),
+            date_info)
 
 
 if __name__ == '__main__':

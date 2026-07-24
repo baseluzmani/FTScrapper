@@ -1,5 +1,5 @@
 # dashboard.py
-# Financial dashboard — Portfolio, P&L, Summary, Transactions, Charts tabs.
+# Financial dashboard — Portfolio, P&L, Summary, Transactions, Charts, Accounts, Allowances tabs.
 # Run with: python3 dashboard.py
 # Then open: http://localhost:8050
 
@@ -11,6 +11,7 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 from collections import defaultdict
+import copy
 
 from data import (
     DB_PATH, load_data, load_instruments, load_portfolio, save_portfolio,
@@ -22,6 +23,357 @@ from data import (
     get_holding_value_gbp,
 )
 
+# ── ALLOWANCES: load from config ───────────────────────────────────────────────
+ALLOWANCES_DEFAULT   = config.ALLOWANCES_DEFAULT
+TAX_YEARS            = config.ALLOWANCES_TAX_YEARS
+JISA_YEARS           = config.ALLOWANCES_JISA_YEARS
+PENSION_ALLOWANCE    = config.ALLOWANCES_PENSION_LIMIT
+ISA_LIMIT            = config.ALLOWANCES_ISA_LIMIT
+JISA_LIMIT           = config.ALLOWANCES_JISA_LIMIT
+CURRENT_YEAR         = config.ALLOWANCES_CURRENT_YEAR
+CAR_P11D             = config.CAR_P11D
+CAR_BIK_RATES        = config.CAR_BIK_RATES
+
+def load_allowances_from_db():
+    """Load saved allowances data from DB, fall back to config default."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        row = conn.execute(
+            "SELECT value FROM user_settings WHERE key = 'allowances'"
+        ).fetchone()
+        conn.close()
+        if row:
+            import json
+            return json.loads(row[0])
+    except Exception as e:
+        print(f"Warning: could not load allowances from DB: {e}")
+    return copy.deepcopy(ALLOWANCES_DEFAULT)
+
+
+def save_allowances_to_db(data):
+    """Save allowances data to DB."""
+    try:
+        import json
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        conn.execute(
+            "INSERT OR REPLACE INTO user_settings (key, value) VALUES ('allowances', ?)",
+            (json.dumps(data),)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Warning: could not save allowances to DB: {e}")
+
+def car_bik_value(tax_year):
+    """Calculate BIK taxable value for a given tax year."""
+    rate = CAR_BIK_RATES.get(tax_year, 0)
+    return round(CAR_P11D * rate)
+
+
+def calc_carry_forward(person_data, person, years):
+    results       = {}
+    unused_by_year= {}
+
+    for yr in years:
+        data      = person_data.get(person, {}).get(yr, {})
+        allowance = PENSION_ALLOWANCE.get(yr, 60000)
+
+        employer_pension = data.get('employer_pension', 0) or 0
+        employee_pension = data.get('employee_pension', 0) or 0
+        sipp_done        = data.get('sipp_done', 0) or 0
+        sipp_future      = data.get('sipp_future', 0) or 0
+        sipp_gross_done  = sipp_done * 1.25
+        sipp_gross_fut   = sipp_future * 1.25
+        total_used       = employer_pension + employee_pension + sipp_gross_done + sipp_gross_fut
+
+        prev_3   = [y for y in years if y < yr][-3:]
+        carry_fwd= sum(unused_by_year.get(y, 0) for y in prev_3)
+        available= allowance + carry_fwd
+
+        # Consume current year first, then oldest carry forward
+        remaining_to_use = total_used
+        current_unused   = max(0, allowance - remaining_to_use)
+        remaining_to_use = max(0, remaining_to_use - allowance)
+
+        carry_pool = {y: unused_by_year.get(y, 0) for y in prev_3}
+        for y in sorted(carry_pool.keys()):
+            if remaining_to_use <= 0:
+                break
+            consumed        = min(carry_pool[y], remaining_to_use)
+            carry_pool[y]  -= consumed
+            remaining_to_use -= consumed
+            unused_by_year[y] = carry_pool[y]
+
+        unused_by_year[yr] = current_unused
+
+        results[yr] = {
+            'allowance':         allowance,
+            'carry_fwd':         carry_fwd,
+            'available':         available,
+            'employer_pension':  employer_pension,
+            'employee_pension':  employee_pension,
+            'sipp_done':         sipp_done,
+            'sipp_future':       sipp_future,
+            'sipp_gross_done':   sipp_gross_done,
+            'sipp_gross_future': sipp_gross_fut,
+            'total_used':        total_used,
+            'remaining':         max(0, available - total_used),
+            'unused':            current_unused,
+            'salary':            data.get('salary', 0) or 0,
+            'bonus':             data.get('bonus', 0) or 0,
+            'car_sacrifice':     data.get('car_sacrifice', 0) or 0,
+            'car_bik':           car_bik_value(yr) if data.get('car_sacrifice', 0) else 0,
+            'other_deductions':  data.get('other_deductions', 0) or 0,
+            'isa':               data.get('isa', 0) or 0,
+        }
+    return results
+
+
+def calc_100k(salary, bonus, car_sacrifice, car_bik, employee_pension, other_deductions, sipp_done_gross, sipp_future_gross):
+    adjusted = (salary + bonus
+                + car_bik          # BIK taxable value adds to income
+                - car_sacrifice    # salary sacrifice deducts from income
+                - employee_pension
+                - other_deductions
+                - sipp_done_gross
+                - sipp_future_gross)
+    gap                 = max(0, adjusted - 100000)
+    additional_sipp_net = gap / 1.25
+    return adjusted, gap, additional_sipp_net
+
+
+def _inp(val, iid):
+    return dcc.Input(
+        id=iid, type='number', value=val or 0, debounce=True,
+        style={'width': '100px', 'fontSize': '11px', 'textAlign': 'right',
+               'border': '1px solid #ddd', 'borderRadius': '4px',
+               'padding': '3px 6px', 'fontFamily': 'monospace'})
+
+
+def build_input_table(person, data, include_car=False):
+    def th(text, align='right'):
+        return html.Th(text, style={'backgroundColor': '#1a3a5c', 'color': 'white',
+                                    'padding': '6px 10px', 'fontSize': '11px', 'fontWeight': '600',
+                                    'textAlign': align, 'whiteSpace': 'nowrap'})
+    hdrs = ['Year', 'Salary', 'Bonus']
+    if include_car:
+        hdrs.append('Car Sacrifice')
+    hdrs += ['Employer Pension', 'Employee Pension', 'Other Pre-tax Deductions', 'SIPP Done (net)', 'SIPP Future (net)', 'ISA Done']
+    
+    rows = []
+    for yr in TAX_YEARS:
+        d  = data.get(person, {}).get(yr, {})
+        is_current = yr == CURRENT_YEAR
+        bg = '#f0f7ff' if is_current else ('white' if TAX_YEARS.index(yr) % 2 == 0 else '#f9fbfd')
+        cells = [
+            html.Td(yr, style={'padding': '4px 10px', 'fontSize': '12px',
+                               'fontWeight': '700' if is_current else '400',
+                               'color': '#1a3a5c', 'whiteSpace': 'nowrap'}),
+            html.Td(_inp(d.get('salary', 0), f'{person}-salary-{yr}'), style={'padding': '4px 6px'}),
+            html.Td(_inp(d.get('bonus', 0),  f'{person}-bonus-{yr}'),  style={'padding': '4px 6px'}),
+        ]
+        if include_car:
+            cells.append(html.Td(_inp(d.get('car_sacrifice', 0), f'{person}-car-sacrifice-{yr}'), style={'padding': '4px 6px'}))
+        cells += [
+            html.Td(_inp(d.get('employer_pension', 0), f'{person}-employer-pension-{yr}'), style={'padding': '4px 6px'}),
+            html.Td(_inp(d.get('employee_pension', 0), f'{person}-employee-pension-{yr}'), style={'padding': '4px 6px'}),
+            html.Td(_inp(d.get('other_deductions', 0), f'{person}-other-deductions-{yr}'), style={'padding': '4px 6px'}),
+            html.Td(_inp(d.get('sipp_done', 0),        f'{person}-sipp-done-{yr}'),        style={'padding': '4px 6px'}),
+            html.Td(_inp(d.get('sipp_future', 0),      f'{person}-sipp-future-{yr}'),      style={'padding': '4px 6px'}),
+            html.Td(_inp(d.get('isa', 0),              f'{person}-isa-{yr}'),              style={'padding': '4px 6px'}),
+        ]
+        rows.append(html.Tr(cells, style={'backgroundColor': bg, 'borderBottom': '1px solid #f0f3f7'}))
+
+    return html.Div(
+        html.Table([html.Thead(html.Tr([th(h, 'left' if i == 0 else 'right') for i, h in enumerate(hdrs)])),
+                    html.Tbody(rows)],
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        style={'overflowX': 'auto'})
+
+
+def build_results_table(results):
+    def th(text, align='right'):
+        return html.Th(text, style={'backgroundColor': '#1a3a5c', 'color': 'white',
+                                    'padding': '6px 10px', 'fontSize': '11px', 'fontWeight': '600',
+                                    'textAlign': align, 'whiteSpace': 'nowrap'})
+
+    def td(val, color=None, bold=False, prefix='£'):
+        text  = '—' if val is None else f"{prefix}{val:,.0f}"
+        style = {'padding': '4px 10px', 'fontSize': '11px', 'textAlign': 'right',
+                 'fontFamily': 'monospace', 'fontWeight': '700' if bold else '400'}
+        if color:
+            style['color'] = color
+        return html.Td(text, style=style)
+
+    hdrs = ['Year', 'Allowance', 'Carry Fwd', 'Available',
+            'Employer Pension', 'Employee Pension', 'SIPP Gross', 'Total Used', 'Remaining',
+            'Car Sacrifice', 'Car BIK', 'Adjusted Income', 'Gap to £100k', 'Extra SIPP Needed']
+
+    rows = []
+    for yr in TAX_YEARS:
+        r  = results.get(yr, {})
+        if not r:
+            continue
+        is_current = yr == CURRENT_YEAR
+        bg  = '#f0f7ff' if is_current else ('white' if TAX_YEARS.index(yr) % 2 == 0 else '#f9fbfd')
+        rem = r.get('remaining', 0)
+        rem_color = '#1a7a1a' if rem > 0 else '#c0392b'
+
+        salary  = r.get('salary', 0)
+        car_bik = r.get('car_bik', 0)
+        if salary > 0:
+            adj, gap, extra_sipp = calc_100k(
+                salary,
+                r.get('bonus', 0),
+                r.get('car_sacrifice', 0),
+                r.get('car_bik', 0),
+                r.get('employee_pension', 0),
+                r.get('other_deductions', 0),
+                r.get('sipp_gross_done', 0),
+                r.get('sipp_gross_future', 0))
+        else:
+            adj = gap = extra_sipp = 0
+
+        adj_color  = '#c0392b' if adj > 100000 else '#1a7a1a'
+        gap_color  = '#c0392b' if gap > 0 else '#1a7a1a'
+        sipp_gross = r.get('sipp_gross_done', 0) + r.get('sipp_gross_future', 0)
+
+        rows.append(html.Tr([
+            html.Td(yr, style={'padding': '4px 10px', 'fontSize': '12px',
+                               'fontWeight': '700' if is_current else '400',
+                               'color': '#1a3a5c', 'whiteSpace': 'nowrap'}),
+            td(r.get('allowance')),
+            td(r.get('carry_fwd')),
+            td(r.get('available'), bold=True),
+            td(r.get('employer_pension')),
+            td(r.get('employee_pension')),
+            td(sipp_gross),
+            td(r.get('total_used'), bold=True),
+            td(rem, color=rem_color, bold=True),
+            td(r.get('car_sacrifice', 0) if r.get('car_sacrifice') else None),
+            td(r.get('car_bik', 0) if r.get('car_bik') else None),
+            td(adj if salary > 0 else None, color=adj_color if salary > 0 else None),
+            td(gap if salary > 0 else None, color=gap_color if salary > 0 else None),
+            td(extra_sipp if salary > 0 and gap > 0 else None, color='#c0392b'),
+        ], style={'backgroundColor': bg, 'borderBottom': '1px solid #f0f3f7'}))
+
+    return html.Div(
+        html.Table([html.Thead(html.Tr([th(h, 'left' if i == 0 else 'right') for i, h in enumerate(hdrs)])),
+                    html.Tbody(rows)],
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        style={'overflowX': 'auto'})
+
+
+def build_isa_table(results):
+    def th(text, align='right'):
+        return html.Th(text, style={'backgroundColor': '#1a3a5c', 'color': 'white',
+                                    'padding': '6px 10px', 'fontSize': '11px', 'fontWeight': '600',
+                                    'textAlign': align, 'whiteSpace': 'nowrap'})
+    rows = []
+    for yr in TAX_YEARS:
+        r  = results.get(yr, {})
+        if not r:
+            continue
+        is_current = yr == CURRENT_YEAR
+        bg  = '#f0f7ff' if is_current else ('white' if TAX_YEARS.index(yr) % 2 == 0 else '#f9fbfd')
+        done    = r.get('isa', 0)
+        isa_rem = 0 if yr < CURRENT_YEAR else ISA_LIMIT - done
+        rem_color = '#1a7a1a' if isa_rem >= 0 else '#c0392b'
+        rows.append(html.Tr([
+            html.Td(yr, style={'padding': '4px 10px', 'fontSize': '12px',
+                               'fontWeight': '700' if is_current else '400', 'color': '#1a3a5c'}),
+            html.Td(f"£{ISA_LIMIT:,}", style={'padding': '4px 10px', 'fontSize': '11px',
+                                               'textAlign': 'right', 'fontFamily': 'monospace'}),
+            html.Td(f"£{done:,}",      style={'padding': '4px 10px', 'fontSize': '11px',
+                                               'textAlign': 'right', 'fontFamily': 'monospace'}),
+            html.Td(f"£{isa_rem:,}",   style={'padding': '4px 10px', 'fontSize': '11px',
+                                               'textAlign': 'right', 'fontFamily': 'monospace',
+                                               'fontWeight': '700', 'color': rem_color}),
+        ], style={'backgroundColor': bg, 'borderBottom': '1px solid #f0f3f7'}))
+
+    return html.Div(
+        html.Table([html.Thead(html.Tr([th(h, 'left' if i == 0 else 'right')
+                                        for i, h in enumerate(['Year', 'Limit', 'Done', 'Remaining'])])),
+                    html.Tbody(rows)],
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        style={'overflowX': 'auto'})
+
+
+def build_jisa_table(atlas_data):
+    def th(text, align='right'):
+        return html.Th(text, style={'backgroundColor': '#1a3a5c', 'color': 'white',
+                                    'padding': '6px 10px', 'fontSize': '11px', 'fontWeight': '600',
+                                    'textAlign': align, 'whiteSpace': 'nowrap'})
+    rows = []
+    for yr in JISA_YEARS:
+        d  = atlas_data.get(yr, {})
+        is_current = yr == CURRENT_YEAR
+        bg  = '#f0f7ff' if is_current else ('white' if JISA_YEARS.index(yr) % 2 == 0 else '#f9fbfd')
+        done   = d.get('jisa', 0) or 0
+        future = d.get('jisa_future', 0) or 0
+        rem    = 0 if yr < CURRENT_YEAR else JISA_LIMIT - done - future
+        rem_color = '#1a7a1a' if rem >= 0 else '#c0392b'
+        rows.append(html.Tr([
+            html.Td(yr, style={'padding': '4px 10px', 'fontSize': '12px',
+                               'fontWeight': '700' if is_current else '400', 'color': '#1a3a5c'}),
+            html.Td(f"£{JISA_LIMIT:,}", style={'padding': '4px 10px', 'fontSize': '11px',
+                                                'textAlign': 'right', 'fontFamily': 'monospace'}),
+            html.Td(dcc.Input(id=f'atlas-jisa-done-{yr}', type='number', value=done, debounce=True,
+                              style={'width': '90px', 'fontSize': '11px', 'textAlign': 'right',
+                                     'border': '1px solid #ddd', 'borderRadius': '4px',
+                                     'padding': '3px 6px', 'fontFamily': 'monospace'}),
+                    style={'padding': '4px 6px'}),
+            html.Td(dcc.Input(id=f'atlas-jisa-future-{yr}', type='number', value=future, debounce=True,
+                              style={'width': '90px', 'fontSize': '11px', 'textAlign': 'right',
+                                     'border': '1px solid #ddd', 'borderRadius': '4px',
+                                     'padding': '3px 6px', 'fontFamily': 'monospace'}),
+                    style={'padding': '4px 6px'}),
+            html.Td(f"£{rem:,}", style={'padding': '4px 10px', 'fontSize': '11px',
+                                         'textAlign': 'right', 'fontFamily': 'monospace',
+                                         'fontWeight': '700', 'color': rem_color}),
+        ], style={'backgroundColor': bg, 'borderBottom': '1px solid #f0f3f7'}))
+
+    return html.Div(
+        html.Table([html.Thead(html.Tr([th(h, 'left' if i == 0 else 'right')
+                                        for i, h in enumerate(['Year', 'Limit', 'Done', 'Future', 'Remaining'])])),
+                    html.Tbody(rows)],
+                   style={'width': '100%', 'borderCollapse': 'collapse'}),
+        style={'overflowX': 'auto'})
+
+
+ALLOWANCES_INPUTS = (
+    [Input(f'ahmet-salary-{yr}',            'value') for yr in TAX_YEARS] +
+    [Input(f'ahmet-bonus-{yr}',             'value') for yr in TAX_YEARS] +
+    [Input(f'ahmet-car-sacrifice-{yr}',     'value') for yr in TAX_YEARS] +
+    [Input(f'ahmet-employer-pension-{yr}',  'value') for yr in TAX_YEARS] +
+    [Input(f'ahmet-employee-pension-{yr}',  'value') for yr in TAX_YEARS] +
+    [Input(f'ahmet-other-deductions-{yr}',  'value') for yr in TAX_YEARS] +
+    [Input(f'ahmet-sipp-done-{yr}',         'value') for yr in TAX_YEARS] +
+    [Input(f'ahmet-sipp-future-{yr}',       'value') for yr in TAX_YEARS] +
+    [Input(f'ahmet-isa-{yr}',               'value') for yr in TAX_YEARS] +
+    [Input(f'burcu-salary-{yr}',            'value') for yr in TAX_YEARS] +
+    [Input(f'burcu-bonus-{yr}',             'value') for yr in TAX_YEARS] +
+    [Input(f'burcu-employer-pension-{yr}',  'value') for yr in TAX_YEARS] +
+    [Input(f'burcu-employee-pension-{yr}',  'value') for yr in TAX_YEARS] +
+    [Input(f'burcu-other-deductions-{yr}',  'value') for yr in TAX_YEARS] +
+    [Input(f'burcu-sipp-done-{yr}',         'value') for yr in TAX_YEARS] +
+    [Input(f'burcu-sipp-future-{yr}',       'value') for yr in TAX_YEARS] +
+    [Input(f'burcu-isa-{yr}',               'value') for yr in TAX_YEARS] +
+    [Input(f'atlas-jisa-done-{yr}',           'value') for yr in JISA_YEARS] +
+    [Input(f'atlas-jisa-future-{yr}',         'value') for yr in JISA_YEARS]
+)
 
 # ── 1. APP SETUP ───────────────────────────────────────────────
 
@@ -159,6 +511,8 @@ app.layout = html.Div([
             dcc.Tab(label='Charts',       value='tab-charts',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
             dcc.Tab(label='Accounts',     value='tab-accounts',
+                    style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
+            dcc.Tab(label='Allowances',   value='tab-allowances',
                     style=TAB_STYLE, selected_style=TAB_SELECTED_STYLE),
         ],
         style={'backgroundColor': '#fff', 'borderBottom': '1px solid #eee', 'marginBottom': '0'}
@@ -437,6 +791,51 @@ app.layout = html.Div([
         'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
     }),
 
+    # ── ALLOWANCES TAB
+    html.Div([
+        dcc.Store(id='allowances-data', data=load_allowances_from_db()),
+
+        # Ahmet
+        html.P('AHMET', style=SECTION_TITLE),
+        html.Div([
+            html.P('PENSION & INCOME INPUTS', style={**SECTION_TITLE, 'marginBottom': '8px'}),
+            html.Div(id='ahmet-input-table'),
+        ], style=CARD),
+        html.Div([
+            html.P('PENSION ALLOWANCE & CARRY FORWARD', style={**SECTION_TITLE, 'marginBottom': '8px'}),
+            html.Div(id='ahmet-results-table'),
+        ], style=CARD),
+        html.Div([
+            html.P('ISA ALLOWANCE', style={**SECTION_TITLE, 'marginBottom': '8px'}),
+            html.Div(id='ahmet-isa-table'),
+        ], style=CARD),
+
+        # Burcu
+        html.P('BURCU', style={**SECTION_TITLE, 'marginTop': '8px'}),
+        html.Div([
+            html.P('PENSION & INCOME INPUTS', style={**SECTION_TITLE, 'marginBottom': '8px'}),
+            html.Div(id='burcu-input-table'),
+        ], style=CARD),
+        html.Div([
+            html.P('PENSION ALLOWANCE & CARRY FORWARD', style={**SECTION_TITLE, 'marginBottom': '8px'}),
+            html.Div(id='burcu-results-table'),
+        ], style=CARD),
+        html.Div([
+            html.P('ISA ALLOWANCE', style={**SECTION_TITLE, 'marginBottom': '8px'}),
+            html.Div(id='burcu-isa-table'),
+        ], style=CARD),
+
+        # Atlas
+        html.P('ATLAS — JISA', style={**SECTION_TITLE, 'marginTop': '8px'}),
+        html.Div([
+            html.Div(id='atlas-jisa-table'),
+        ], style=CARD),
+
+    ], id='allowances-tab-content', style={
+        'display': 'none', 'padding': '12px 16px 16px 16px',
+        'maxWidth': '1400px', 'margin': '0 auto', 'overflowX': 'hidden',
+    }),
+
     # Shared stores
     dcc.Store(id='sort-state-holdings', data={'col': 'YTD', 'asc': False}),
     dcc.Store(id='sort-state-market',   data={'col': 'YTD', 'asc': False}),
@@ -461,6 +860,7 @@ app.layout = html.Div([
     Output('transactions-tab-content', 'style'),
     Output('charts-tab-content',       'style'),
     Output('accounts-tab-content',     'style'),
+    Output('allowances-tab-content',   'style'),
     Output('data-date-label',          'children'),
     Input('main-tabs',         'value'),
     Input('db-reload-trigger', 'data'),
@@ -479,19 +879,20 @@ def switch_tab(tab, reload_trigger, n_intervals):
     hide = {**base, 'display': 'none'}
 
     if tab == 'tab-portfolio':
-        return show, hide, hide, hide, hide, hide, date_label
+        return show, hide, hide, hide, hide, hide, hide, date_label
     elif tab == 'tab-pnl':
-        return hide, show, hide, hide, hide, hide, date_label
+        return hide, show, hide, hide, hide, hide, hide, date_label
     elif tab == 'tab-summary':
-        return hide, hide, show, hide, hide, hide, date_label
+        return hide, hide, show, hide, hide, hide, hide, date_label
     elif tab == 'tab-transactions':
-        return hide, hide, hide, show, hide, hide, date_label
+        return hide, hide, hide, show, hide, hide, hide, date_label
     elif tab == 'tab-charts':
-        return hide, hide, hide, hide, show, hide, date_label
+        return hide, hide, hide, hide, show, hide, hide, date_label
     elif tab == 'tab-accounts':
-        return hide, hide, hide, hide, hide, show, date_label
-    return show, hide, hide, hide, hide, hide, date_label
-
+        return hide, hide, hide, hide, hide, show, hide, date_label
+    elif tab == 'tab-allowances':
+        return hide, hide, hide, hide, hide, hide, show, date_label
+    return show, hide, hide, hide, hide, hide, hide, date_label
 
 
 # ── 5. PORTFOLIO CALLBACKS ─────────────────────────────────────
@@ -689,7 +1090,6 @@ def update_portfolio(reload, tab, snapshot_date):
         style={**CARD, 'overflowX': 'auto', 'padding': '0'}
     )
 
-    # Category breakdown
     cat_totals = defaultdict(float)
     for r in rows_data:
         if r['category']:
@@ -705,8 +1105,7 @@ def update_portfolio(reload, tab, snapshot_date):
                     SELECT i.category, SUM(sh.value_gbp)
                     FROM snapshot_holdings sh
                     JOIN instruments i ON sh.fund_id = i.fund_id
-                    WHERE sh.snapshot_id = ?
-                    AND sh.fund_id != 'CASH:TOTAL'
+                    WHERE sh.snapshot_id = ? AND sh.fund_id != 'CASH:TOTAL'
                     GROUP BY i.category
                 """, (_sr[0],)).fetchall()
                 snap_cat = {r[0]: r[1] for r in rows_sc if r[0]}
@@ -723,7 +1122,6 @@ def update_portfolio(reload, tab, snapshot_date):
                 'fontSize': '10px', 'fontWeight': '600', 'whiteSpace': 'nowrap'}
         return {**base, 'textAlign': 'left' if i == 0 else 'right', 'width': '1%' if i > 0 else 'auto'}
 
-    # Asset type breakdown
     asset_totals = defaultdict(float)
     for r in rows_data:
         if r.get('type'):
@@ -778,14 +1176,8 @@ def update_portfolio(reload, tab, snapshot_date):
         html.Td(f"{asset_chg_total/1000:+.1f}" if asset_chg_total is not None else '—', style={'padding': '6px 6px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '700', 'color': asset_chg_color, 'borderTop': '2px solid #1a3a5c'}),
     ] if snap_label else [])))
 
-    # Category rows
-    cat_cols   = ['Category', 'Value £k', '%'] + ([snap_label, 'Chg'] if snap_label else [])
-    cat_header = html.Tr([html.Th(c, style=cat_th_style(i)) for i, c in enumerate(cat_cols)])
-    # ── Account summary ──
     from collections import defaultdict as _dd
     acc_totals = _dd(float)
-
-    # Transaction-based holdings
     conn_acc = sqlite3.connect(DB_PATH)
     txn_acc = conn_acc.execute("""
         SELECT t.account, t.fund_id,
@@ -822,14 +1214,12 @@ def update_portfolio(reload, tab, snapshot_date):
             value = gbp * net_qty if gbp else 0
         acc_totals[account] += value
 
-    # Non-transaction holdings from config
     holding_accounts = getattr(config, 'HOLDING_ACCOUNTS', {})
     for fid, account in holding_accounts.items():
         row = next((p for p in rows_data if p['fund_id'] == fid), None)
         if row and row['value']:
             acc_totals[account] += row['value']
 
-    # Cash by account
     for acc in cash_accounts:
         amount  = float(acc.get('amount', 0))
         curr    = acc.get('currency', 'GBP')
@@ -840,27 +1230,18 @@ def update_portfolio(reload, tab, snapshot_date):
     for acc, val in sorted(acc_totals.items(), key=lambda x: x[1], reverse=True):
         pct = val / total * 100 if total else 0
         acc_rows.append(html.Tr([
-            html.Td(acc, style={'padding': '4px 6px', 'fontSize': '11px',
-                                'color': '#1a3a5c', 'fontWeight': '500', 'whiteSpace': 'nowrap'}),
-            html.Td(f"{val/1000:.1f}", style={'padding': '4px 6px', 'fontSize': '11px',
-                                              'textAlign': 'right', 'fontFamily': 'monospace',
-                                              'fontWeight': '600', 'width': '1%', 'whiteSpace': 'nowrap'}),
-            html.Td(f"{pct:.1f}%", style={'padding': '4px 6px', 'fontSize': '11px',
-                                          'textAlign': 'right', 'fontFamily': 'monospace',
-                                          'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap'}),
+            html.Td(acc, style={'padding': '4px 6px', 'fontSize': '11px', 'color': '#1a3a5c', 'fontWeight': '500', 'whiteSpace': 'nowrap'}),
+            html.Td(f"{val/1000:.1f}", style={'padding': '4px 6px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '600', 'width': '1%', 'whiteSpace': 'nowrap'}),
+            html.Td(f"{pct:.1f}%", style={'padding': '4px 6px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#555', 'width': '1%', 'whiteSpace': 'nowrap'}),
         ], style={'borderBottom': '1px solid #f0f3f7'}))
-
-    # Total row
     acc_rows.append(html.Tr([
-        html.Td("TOTAL", style={'padding': '6px 6px', 'fontSize': '11px', 'fontWeight': '700',
-                                'color': '#1a3a5c', 'borderTop': '2px solid #1a3a5c'}),
-        html.Td(f"{total/1000:.1f}", style={'padding': '6px 6px', 'fontSize': '11px',
-                                            'textAlign': 'right', 'fontFamily': 'monospace',
-                                            'fontWeight': '700', 'borderTop': '2px solid #1a3a5c'}),
-        html.Td("100%", style={'padding': '6px 6px', 'fontSize': '11px', 'textAlign': 'right',
-                               'fontFamily': 'monospace', 'color': '#555',
-                               'borderTop': '2px solid #1a3a5c'}),
+        html.Td("TOTAL", style={'padding': '6px 6px', 'fontSize': '11px', 'fontWeight': '700', 'color': '#1a3a5c', 'borderTop': '2px solid #1a3a5c'}),
+        html.Td(f"{total/1000:.1f}", style={'padding': '6px 6px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '700', 'borderTop': '2px solid #1a3a5c'}),
+        html.Td("100%", style={'padding': '6px 6px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#555', 'borderTop': '2px solid #1a3a5c'}),
     ]))
+
+    cat_cols   = ['Category', 'Value £k', '%'] + ([snap_label, 'Chg'] if snap_label else [])
+    cat_header = html.Tr([html.Th(c, style=cat_th_style(i)) for i, c in enumerate(cat_cols)])
     cat_rows   = []
     all_cats   = set(cat_totals.keys()) | set(snap_cat.keys())
     for cat, val in sorted([(c, cat_totals.get(c, 0)) for c in all_cats], key=lambda x: x[1], reverse=True):
@@ -1032,7 +1413,6 @@ def update_pnl(tab, _, show_closed, compact):
     open_df   = pnl_df[pnl_df["Qty"] > 0]
     closed_df = pnl_df[pnl_df["Qty"] == 0]
 
-    range_1d = range_1w = range_1m = range_3m = range_ytd = (0, 0)
     ret_lists = [[], [], [], [], []]
     _ytd = ytd_date()
     for fid in pnl_df["fund_id"]:
@@ -1168,7 +1548,7 @@ def update_pnl(tab, _, show_closed, compact):
                     html.Td("—", style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb"}),
                     html.Td("—", colSpan=5, style={"padding": "5px 10px", "textAlign": "right", "color": "#bbb"}),
                 ], style={"borderBottom": "1px solid #f0f3f7", "backgroundColor": "#fafafa"}))
-                
+
     total_1d_gbp = sum(
         r["Current Value"] * calc_return(df_combined, r["fund_id"], days_back=1) / 100
         for _, r in open_df.iterrows()
@@ -1446,8 +1826,6 @@ def update_summary(tab, snapshot_date, reload):
     )
 
 
-# ── CHARTS CALLBACKS ──────────────────────────────────────────
-
 @app.callback(
     Output('sunburst-chart',       'figure'),
     Output('charts-breakdown-div', 'children'),
@@ -1464,7 +1842,6 @@ def update_charts(reload, tab):
     fx_rates      = get_fx_rates(df)
     portfolio     = [p for p in portfolio if not p['fund_id'].startswith('CASH:')]
 
-    # Build data
     rows_data = []
     for item in portfolio:
         fid   = item['fund_id']
@@ -1511,9 +1888,6 @@ def update_charts(reload, tab):
 
     total = sum(r['value'] for r in rows_data)
 
-    # Build sunburst data
-    # Inner ring: asset types; outer ring: category within each asset type
-    from collections import defaultdict
     asset_cat = defaultdict(lambda: defaultdict(float))
     for r in rows_data:
         asset_cat[r['asset_type']][r['category']] += r['value']
@@ -1523,7 +1897,6 @@ def update_charts(reload, tab):
     values  = [total]
     colours = ['#1a3a5c']
 
-    # Colour palette for asset types
     asset_colours = {
         'Fund':      '#2E75B6', 'ETF':       '#1a7a1a', 'Stock':    '#e67e22',
         'Gold':      '#f39c12', 'Commodity': '#8e44ad', 'Cash':     '#95a5a6',
@@ -1538,8 +1911,6 @@ def update_charts(reload, tab):
     ]
     cat_colour_map = {}
     ci = 0
-
-    # Collect all asset type names to detect label conflicts
     asset_type_names = set(asset_cat.keys())
 
     for atype, cats in sorted(asset_cat.items(), key=lambda x: sum(x[1].values()), reverse=True):
@@ -1550,7 +1921,6 @@ def update_charts(reload, tab):
         colours.append(asset_colours.get(atype, '#aaa'))
 
         for cat, val in sorted(cats.items(), key=lambda x: x[1], reverse=True):
-            # Make unique: if cat name clashes with any asset type or already in labels
             if cat in asset_type_names or cat in labels:
                 display_label = f"{cat} ({atype})"
             else:
@@ -1564,30 +1934,20 @@ def update_charts(reload, tab):
             colours.append(cat_colour_map[cat])
 
     fig = go.Figure(go.Sunburst(
-        labels=labels,
-        parents=parents,
-        values=values,
+        labels=labels, parents=parents, values=values,
         marker=dict(colors=colours),
         hovertemplate='<b>%{label}</b><br>£%{value:,.0f}<br>%{percentParent:.1%} of group | %{percentRoot:.1%} of total<extra></extra>',
-        branchvalues='total',
-        maxdepth=3,
+        branchvalues='total', maxdepth=3,
         textinfo='label+percent parent',
-        insidetextfont=dict(size=10),
-        outsidetextfont=dict(size=10),
+        insidetextfont=dict(size=10), outsidetextfont=dict(size=10),
     ))
-    fig.update_layout(
-        height=480,
-        margin=dict(l=0, r=0, t=10, b=0),
-        paper_bgcolor='white',
-    )
+    fig.update_layout(height=480, margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor='white')
 
-    # Breakdown tables (same as portfolio tab but for charts)
     def cat_th(i):
         base = {'backgroundColor': '#1a3a5c', 'color': 'white', 'padding': '5px 6px',
                 'fontSize': '10px', 'fontWeight': '600', 'whiteSpace': 'nowrap'}
         return {**base, 'textAlign': 'left' if i == 0 else 'right', 'width': '1%' if i > 0 else 'auto'}
 
-    # Asset type table
     asset_totals = defaultdict(float)
     for r in rows_data:
         asset_totals[r['asset_type']] += r['value']
@@ -1607,7 +1967,6 @@ def update_charts(reload, tab):
         html.Td("100%", style={'padding': '6px 6px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#555', 'borderTop': '2px solid #1a3a5c'}),
     ]))
 
-    # Category table
     cat_totals2 = defaultdict(float)
     for r in rows_data:
         cat_totals2[r['category']] += r['value']
@@ -1732,8 +2091,6 @@ def update_portfolio_history_chart(reload, tab):
     return fig
 
 
-# ── TRANSACTIONS CALLBACKS ────────────────────────────────────
-
 @app.callback(
     Output('txn-filter-fund', 'options'),
     Input('main-tabs', 'value'),
@@ -1803,7 +2160,7 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
                           'fontSize': '11px', 'fontWeight': '600',
                           'textAlign': 'left' if i == 0 else 'right', 'whiteSpace': 'nowrap'})
         for i, c in enumerate(['Date', 'Fund', 'Type', 'Qty', 'Price', 'Cost GBP',
-                                'Latest Price', 'Current Value GBP', 'P&L GBP'])
+                                'Latest Price', 'Current Value GBP', 'P&L GBP', 'P&L %'])
     ])
 
     table_rows = []; total_cost = 0.0; total_value = 0.0; total_pnl = 0.0
@@ -1851,6 +2208,10 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
             if val == int(val): return f"{int(val):+,}"
             return f"{val:+,.4f}".rstrip('0').rstrip('.')
 
+        def get_w(the_val):
+            if hasattr(the_val, 'iloc'): the_val = the_val.iloc[0]
+            return float(the_val) if the_val is not None else 0.0
+
         table_rows.append(html.Tr([
             html.Td(trade_date, style={'padding': '4px 10px', 'fontSize': '11px', 'color': '#555', 'whiteSpace': 'nowrap'}),
             html.Td(html.Span(ndisp, title=name or fid), style={'padding': '4px 10px', 'fontSize': '12px', 'color': '#1a3a5c', 'whiteSpace': 'nowrap'}),
@@ -1861,6 +2222,7 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
             html.Td(latest_str, style={'padding': '4px 10px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'color': '#555'}),
             html.Td(fmt_signed(signed_value) if signed_value is not None else '—', style={'padding': '4px 10px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'color': val_color}),
             html.Td(fmt_signed(pnl) if pnl is not None else '—', style={'padding': '4px 10px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '700', 'color': pnl_color}),
+            html.Td(f"{(pnl / abs(signed_cost) * 100):+.1f}%" if (pnl is not None and signed_cost != 0) else '—', style={'padding': '4px 10px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '700', 'color': pnl_color}),
         ], style={'borderBottom': '1px solid #f0f3f7'}))
 
     pnl_color_total  = '#1a7a1a' if total_pnl  >= 0 else '#c0392b'
@@ -1873,6 +2235,7 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
         html.Td('', style={'borderTop': '2px solid #1a3a5c'}),
         html.Td(f"{total_value:+,.0f}", style={'padding': '7px 10px', 'fontSize': '12px', 'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '700', 'color': val_color_total, 'borderTop': '2px solid #1a3a5c'}),
         html.Td(f"{total_pnl:+,.0f}", style={'padding': '7px 10px', 'fontSize': '12px', 'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '700', 'color': pnl_color_total, 'borderTop': '2px solid #1a3a5c'}),
+        html.Td(f"{(total_pnl / abs(total_cost) * 100):+.1f}%" if total_cost != 0 else '—', style={'padding': '7px 10px', 'fontSize': '12px', 'textAlign': 'right', 'fontFamily': 'monospace', 'fontWeight': '700', 'color': pnl_color_total, 'borderTop': '2px solid #1a3a5c'}),
     ]))
 
     return html.Div(
@@ -1880,8 +2243,6 @@ def update_transactions_table(tab, funds, date_from, date_to, txn_type, _):
         style={**CARD, 'overflowX': 'auto', 'padding': '0'}
     )
 
-
-# ── ACCOUNTS CALLBACK ───────────────────────────────────────────
 
 @app.callback(
     Output('accounts-table-div',  'children'),
@@ -1899,14 +2260,12 @@ def update_accounts(tab, reload):
     portfolio = [p for p in portfolio if not p['fund_id'].startswith('CASH:')]
     cash_accs = load_cash_accounts()
 
-    # Build P&L data per fund
     pnl_df = calc_pnl(df_combined, instruments, gbpusd, fx_rates)
     pnl_map = {}
     if not pnl_df.empty:
         for _, r in pnl_df.iterrows():
             pnl_map[r['fund_id']] = r
 
-    # Get all transactions grouped by account+fund
     conn = sqlite3.connect(DB_PATH)
     txn_rows = conn.execute("""
         SELECT t.account, t.fund_id, i.name,
@@ -1920,12 +2279,9 @@ def update_accounts(tab, reload):
     """).fetchall()
     conn.close()
 
-    # Add non-transaction holdings from config
     holding_accounts = getattr(config, 'HOLDING_ACCOUNTS', {})
-
-    # Group by account
-    from collections import defaultdict, OrderedDict
     account_holdings = defaultdict(list)
+
     for account, fid, name, net_qty in txn_rows:
         inst  = instruments.get(fid, {})
         cat   = inst.get('category', '—')
@@ -1933,8 +2289,7 @@ def update_accounts(tab, reload):
         punit = inst.get('price_unit', 'pound')
 
         if fid.startswith('COMPOSITE:'):
-            comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', [])
-                             if c['fund_id'] == fid), None)
+            comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', []) if c['fund_id'] == fid), None)
             if comp_def:
                 weighted_gbp = 0.0
                 for c in comp_def['components']:
@@ -1954,8 +2309,6 @@ def update_accounts(tab, reload):
             price_gbp = to_gbp(raw, punit, curr, gbpusd, fx_rates) if raw else None
 
         value = price_gbp * net_qty if price_gbp else None
-
-        # P&L from pnl_map
         pnl_r    = pnl_map.get(fid)
         cost_gbp = pnl_r['Cost Basis'] if pnl_r is not None else None
         pnl      = pnl_r['PnL']        if pnl_r is not None else None
@@ -1967,7 +2320,6 @@ def update_accounts(tab, reload):
             'cost': cost_gbp, 'pnl': pnl, 'pnl_pct': pnl_pct,
         })
 
-    # Add non-transaction holdings (pension funds, house etc.)
     for fid, account in holding_accounts.items():
         row = next((p for p in portfolio if p['fund_id'] == fid), None)
         if not row:
@@ -1980,8 +2332,7 @@ def update_accounts(tab, reload):
         punit = inst.get('price_unit', 'pound')
 
         if fid.startswith('COMPOSITE:'):
-            comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', [])
-                             if c['fund_id'] == fid), None)
+            comp_def = next((c for c in getattr(config, 'COMPOSITE_FUNDS', []) if c['fund_id'] == fid), None)
             if comp_def:
                 weighted_gbp = 0.0
                 for c in comp_def['components']:
@@ -2007,12 +2358,10 @@ def update_accounts(tab, reload):
             'cost': None, 'pnl': None, 'pnl_pct': None,
         })
 
-    # Cash by account name
     cash_by_account = defaultdict(list)
     for acc in cash_accs:
         cash_by_account[acc['name']].append(acc)
 
-    # All unique accounts
     all_accounts = sorted(set(list(account_holdings.keys()) + list(cash_by_account.keys())))
 
     def th(c, i=1):
@@ -2028,8 +2377,7 @@ def update_accounts(tab, reload):
         holdings = account_holdings.get(account, [])
         cashes   = cash_by_account.get(account, [])
 
-        # Calculate account total
-        hold_total = sum(h['value'] for h in holdings if h['value']) 
+        hold_total = sum(h['value'] for h in holdings if h['value'])
         cash_total_gbp = sum(
             a['amount'] if a['currency'] == 'GBP'
             else a['amount'] / fx_rates.get(a['currency'], 1.0)
@@ -2038,11 +2386,9 @@ def update_accounts(tab, reload):
         acc_total = hold_total + cash_total_gbp
         grand_total += acc_total
 
-        # Account header
         acc_color = '#2E75B6'
         rows = []
 
-        # Holdings rows
         for h in sorted(holdings, key=lambda x: x['value'] or 0, reverse=True):
             pnl_color = '#1a7a1a' if (h['pnl'] or 0) >= 0 else '#c0392b'
             ndisp = h['name'] if len(h['name']) <= 35 else h['name'][:35] + '…'
@@ -2051,33 +2397,25 @@ def update_accounts(tab, reload):
 
             rows.append(html.Tr([
                 html.Td(html.Span(ndisp, title=h['name']),
-                        style={'padding': '4px 8px', 'fontSize': '11px',
-                               'color': '#1a3a5c', 'whiteSpace': 'nowrap'}),
+                        style={'padding': '4px 8px', 'fontSize': '11px', 'color': '#1a3a5c', 'whiteSpace': 'nowrap'}),
                 html.Td(h['category'],
-                        style={'padding': '4px 8px', 'fontSize': '10px',
-                               'color': '#666', 'whiteSpace': 'nowrap'}),
+                        style={'padding': '4px 8px', 'fontSize': '10px', 'color': '#666', 'whiteSpace': 'nowrap'}),
                 html.Td(qty_str,
-                        style={'padding': '4px 8px', 'fontSize': '11px',
-                               'textAlign': 'right', 'fontFamily': 'monospace'}),
+                        style={'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right', 'fontFamily': 'monospace'}),
                 html.Td(f"{h['value']:,.0f}" if h['value'] else '—',
-                        style={'padding': '4px 8px', 'fontSize': '11px',
-                               'textAlign': 'right', 'fontFamily': 'monospace',
-                               'fontWeight': '600', 'color': '#1a3a5c'}),
+                        style={'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                               'fontFamily': 'monospace', 'fontWeight': '600', 'color': '#1a3a5c'}),
                 html.Td(f"{h['cost']:,.0f}" if h['cost'] else '—',
-                        style={'padding': '4px 8px', 'fontSize': '11px',
-                               'textAlign': 'right', 'fontFamily': 'monospace',
-                               'color': '#888'}),
+                        style={'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                               'fontFamily': 'monospace', 'color': '#888'}),
                 html.Td(f"{h['pnl']:+,.0f}" if h['pnl'] is not None else '—',
-                        style={'padding': '4px 8px', 'fontSize': '11px',
-                               'textAlign': 'right', 'fontFamily': 'monospace',
-                               'fontWeight': '700', 'color': pnl_color}),
+                        style={'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                               'fontFamily': 'monospace', 'fontWeight': '700', 'color': pnl_color}),
                 html.Td(f"{h['pnl_pct']:+.1f}%" if h['pnl_pct'] is not None else '—',
-                        style={'padding': '4px 8px', 'fontSize': '11px',
-                               'textAlign': 'right', 'fontFamily': 'monospace',
-                               'color': pnl_color}),
+                        style={'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                               'fontFamily': 'monospace', 'color': pnl_color}),
             ], style={'borderBottom': '1px solid #f5f0ff'}))
 
-        # Cash rows
         for a in cashes:
             amount  = float(a['amount'])
             curr    = a['currency']
@@ -2085,38 +2423,29 @@ def update_accounts(tab, reload):
             gbp_val = amount if curr == 'GBP' else amount / fx_rates.get(curr, 1.0)
             rows.append(html.Tr([
                 html.Td(f"Cash ({curr})",
-                        style={'padding': '4px 8px', 'fontSize': '11px',
-                               'color': '#888', 'fontStyle': 'italic',
-                               'whiteSpace': 'nowrap'}),
-                html.Td('Cash',
-                        style={'padding': '4px 8px', 'fontSize': '10px', 'color': '#aaa'}),
+                        style={'padding': '4px 8px', 'fontSize': '11px', 'color': '#888',
+                               'fontStyle': 'italic', 'whiteSpace': 'nowrap'}),
+                html.Td('Cash', style={'padding': '4px 8px', 'fontSize': '10px', 'color': '#aaa'}),
                 html.Td('—', style={'padding': '4px 8px', 'textAlign': 'right'}),
                 html.Td(f"{gbp_val:,.0f}",
-                        style={'padding': '4px 8px', 'fontSize': '11px',
-                               'textAlign': 'right', 'fontFamily': 'monospace',
-                               'fontWeight': '600', 'color': '#1a3a5c'}),
+                        style={'padding': '4px 8px', 'fontSize': '11px', 'textAlign': 'right',
+                               'fontFamily': 'monospace', 'fontWeight': '600', 'color': '#1a3a5c'}),
                 html.Td(f"{sym}{abs(amount):,.0f}",
-                        style={'padding': '4px 8px', 'fontSize': '10px',
-                               'textAlign': 'right', 'color': '#aaa',
-                               'fontFamily': 'monospace'}),
+                        style={'padding': '4px 8px', 'fontSize': '10px', 'textAlign': 'right',
+                               'color': '#aaa', 'fontFamily': 'monospace'}),
                 html.Td('—', style={'padding': '4px 8px', 'textAlign': 'right'}),
                 html.Td('—', style={'padding': '4px 8px', 'textAlign': 'right'}),
-            ], style={'borderBottom': '1px solid #f5f0ff',
-                      'backgroundColor': '#fafafa'}))
+            ], style={'borderBottom': '1px solid #f5f0ff', 'backgroundColor': '#fafafa'}))
 
-        # Account total row
         rows.append(html.Tr([
             html.Td(f"{account} TOTAL", colSpan=3,
-                    style={'padding': '6px 8px', 'fontSize': '12px',
-                           'fontWeight': '700', 'color': acc_color,
-                           'borderTop': '2px solid #e0e8f0'}),
+                    style={'padding': '6px 8px', 'fontSize': '12px', 'fontWeight': '700',
+                           'color': acc_color, 'borderTop': '2px solid #e0e8f0'}),
             html.Td(f"{acc_total:,.0f}",
-                    style={'padding': '6px 8px', 'fontSize': '12px',
-                           'textAlign': 'right', 'fontFamily': 'monospace',
-                           'fontWeight': '700', 'color': acc_color,
+                    style={'padding': '6px 8px', 'fontSize': '12px', 'textAlign': 'right',
+                           'fontFamily': 'monospace', 'fontWeight': '700', 'color': acc_color,
                            'borderTop': '2px solid #e0e8f0'}),
-            html.Td('', colSpan=3,
-                    style={'borderTop': '2px solid #e0e8f0'}),
+            html.Td('', colSpan=3, style={'borderTop': '2px solid #e0e8f0'}),
         ]))
 
         header = html.Tr([
@@ -2129,17 +2458,14 @@ def update_accounts(tab, reload):
                 'color': acc_color, 'fontSize': '12px', 'fontWeight': '700',
                 'letterSpacing': '0.06em', 'textTransform': 'uppercase',
                 'marginBottom': '6px', 'marginTop': '0',
-                'borderLeft': f'3px solid {acc_color}',
-                'paddingLeft': '8px',
+                'borderLeft': f'3px solid {acc_color}', 'paddingLeft': '8px',
             }),
             html.Div(
-                html.Table(
-                    [html.Thead(header), html.Tbody(rows)],
-                    style={'width': '100%', 'borderCollapse': 'collapse'}),
+                html.Table([html.Thead(header), html.Tbody(rows)],
+                           style={'width': '100%', 'borderCollapse': 'collapse'}),
                 style={'overflowX': 'auto'}),
         ], style={**CARD, 'marginBottom': '8px'}))
 
-    # Grand total
     sections.append(html.Div([
         html.Div([
             html.Span("GRAND TOTAL",
@@ -2153,8 +2479,97 @@ def update_accounts(tab, reload):
     return html.Div(sections), f"{grand_total:,.0f}"
 
 
+# ── ALLOWANCES CALLBACKS ───────────────────────────────────────
 
-# ── 11. RUN ─────────────────────────────────────────────────────
+@app.callback(
+    Output('allowances-data', 'data'),
+    ALLOWANCES_INPUTS,
+    State('allowances-data', 'data'),
+    prevent_initial_call=True,
+)
+def update_allowances_store(*args):
+    data = args[-1]
+    vals = args[:-1]
+    i = 0
+
+    for yr in TAX_YEARS:
+        data['ahmet'][yr] = data['ahmet'].get(yr, {})
+        data['ahmet'][yr]['salary']           = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['ahmet'][yr]['bonus']            = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['ahmet'][yr]['car_sacrifice']    = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['ahmet'][yr]['employer_pension'] = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['ahmet'][yr]['employee_pension'] = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['ahmet'][yr]['other_deductions'] = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['ahmet'][yr]['sipp_done']        = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['ahmet'][yr]['sipp_future']      = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['ahmet'][yr]['isa']              = vals[i] or 0; i += 1
+
+    for yr in TAX_YEARS:
+        data['burcu'][yr] = data['burcu'].get(yr, {})
+        data['burcu'][yr]['salary']           = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['burcu'][yr]['bonus']            = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['burcu'][yr]['employer_pension'] = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['burcu'][yr]['employee_pension'] = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['burcu'][yr]['other_deductions'] = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['burcu'][yr]['sipp_done']        = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['burcu'][yr]['sipp_future']      = vals[i] or 0; i += 1
+    for yr in TAX_YEARS:
+        data['burcu'][yr]['isa']              = vals[i] or 0; i += 1
+        
+    for yr in JISA_YEARS:
+        data['atlas'][yr] = data['atlas'].get(yr, {})
+        data['atlas'][yr]['jisa']        = vals[i] or 0; i += 1
+    for yr in JISA_YEARS:
+        data['atlas'][yr]['jisa_future'] = vals[i] or 0; i += 1
+
+    save_allowances_to_db(data)
+    return data
+
+
+@app.callback(
+    Output('ahmet-input-table',   'children'),
+    Output('ahmet-results-table', 'children'),
+    Output('ahmet-isa-table',     'children'),
+    Output('burcu-input-table',   'children'),
+    Output('burcu-results-table', 'children'),
+    Output('burcu-isa-table',     'children'),
+    Output('atlas-jisa-table',      'children'),
+    Input('allowances-data', 'data'),
+    Input('main-tabs', 'value'),
+)
+def update_allowances_tab(data, tab):
+    if tab != 'tab-allowances':
+        return [dash.no_update] * 7
+
+    ahmet_results = calc_carry_forward(data, 'ahmet', TAX_YEARS)
+    burcu_results = calc_carry_forward(data, 'burcu', TAX_YEARS)
+
+    return (
+        build_input_table('ahmet', data, include_car=True),
+        build_results_table(ahmet_results),
+        build_isa_table(ahmet_results),
+        build_input_table('burcu', data, include_car=False),
+        build_results_table(burcu_results),
+        build_isa_table(burcu_results),
+        build_jisa_table(data.get('atlas', {})),
+    )
+
+
+# ── RUN ────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True)

@@ -10,26 +10,28 @@
 # Funds tracked via FT Markets price scraper.
 # 'id' is the FT identifier that goes into the URL.
 FUNDS = [
-    {"name": "SL Asia Pacific Ex Japan",                "id": "GB0031728438:GBP"},
-    {"name": "SL Gold",                                  "id": "GB00B3VNFD68:GBP"},
-    {"name": "SL China",                                 "id": "GB00B7Z71453:GBP"},
-    {"name": "SL JPM Natural Resources",                 "id": "GB00B61JR401:GBP"},
-    {"name": "SL Ishares Pacific",                       "id": "GB00B849FB47:GBP"},
-    {"name": "SL L&G Global Infrastructure",             "id": "GB00BF0TZK67:GBP"},
-    {"name": "HSBC Islamic Global Equity",               "id": "LU2092165666:GBP"},
-    {"name": "SL Macquarie Global Infrastructure Secs",  "id": "GB00B3K5WJ87:GBP"},
-    {"name": "Robeco Emerging Stars Equities G GBP",     "id": "LU1408526199:GBP"},
-    {"name": "JPMorgan Emerging Markets ESG Equity C",   "id": "GB00BL0DTP33:GBP"},
-    {"name": "Schroder Life UK Smaller Companies",       "id": "GB00B0ZGQD71:GBP"},
-    {"name": "Artemis UK Special Situations Fund",       "id": "GB00B2PLJQ03:GBP"},
-    {"name": "L&G PMC North America Equity Index",       "id": "GB00B3VGBC62:GBP"},
-    {"name": "L&G PMC Europe Ex UK Equity Index",        "id": "GB00B4YKRJ18:GBP"},
-    {"name": "L&G PMC Japan Equity Index",               "id": "GB00B4ZFV486:GBP"},
-    {"name": "L&G PMC Asia Pac ex Japan Dev Eq",         "id": "GB00B4WT1Y33:GBP"},
-    {"name": "L&G Future World ESG Optimised UK Index",  "id": "GB00BJH4XW03:GBP"},
-    {"name": "Fidelity Funds - Latin America Fund W-Acc-GBP", "id": "LU1033664027:GBP"},
-    {"name": "Fidelity Asia Fund W Acc",                 "id": "GB00B6Y7NF43:GBX"},
-    {"name": "Fid Fil UK HSBC Islamic 0 GBP",            "id": "0P0001EWE2"},
+    {"name": "SL Asia Pacific Ex Japan",                "id": "GB0031728438:GBP",   "holdings_id": "GB0008396797:GBP"},
+    {"name": "SL Gold",                                  "id": "GB00B3VNFD68:GBP",   "holdings_id": "GB00B3VNFD68:GBP"},
+    {"name": "SL China",                                 "id": "GB00B7Z71453:GBP",   "holdings_id": "GB00B7Z71453:GBP"},
+    {"name": "SL JPM Natural Resources",                 "id": "GB00B61JR401:GBP",   "holdings_id": "GB00B61JR401:GBP"},
+    {"name": "SL Ishares Pacific",                       "id": "GB00B849FB47:GBP",   "holdings_id": "GB00B849FB47:GBP"},
+    {"name": "SL L&G Global Infrastructure",             "id": "GB00BF0TZK67:GBP",   "holdings_id": "GB00BF0TZK67:GBP"},
+    {"name": "HSBC Islamic Global Equity",               "id": "LU2092165666:GBP",   "holdings_id": "IE000G1X4XT2:GBP"},
+    {"name": "SL Macquarie Global Infrastructure Secs",  "id": "GB00B3K5WJ87:GBP",   "holdings_id": "GB00B3K5WJ87:GBP"},
+    {"name": "Robeco Emerging Stars Equities G GBP",     "id": "LU1408526199:GBP",   "holdings_id": "LU1408526199:GBP"},
+    {"name": "JPMorgan Emerging Markets ESG Equity C",   "id": "GB00BL0DTP33:GBP",   "holdings_id": "GB00BL0DTP33:GBP"},
+    {"name": "Schroder Life UK Smaller Companies",       "id": "GB00B0ZGQD71:GBP",   "holdings_id": "GB00B0ZGQD71:GBP"},
+    {"name": "Artemis UK Special Situations Fund",       "id": "GB00B2PLJQ03:GBP",   "holdings_id": "GB00B2PLJQ03:GBP"},
+    {"name": "L&G PMC North America Equity Index",       "id": "GB00B3VGBC62:GBP",   "holdings_id": "GB00B3VGBC62:GBP"},
+    {"name": "L&G PMC Europe Ex UK Equity Index",        "id": "GB00B4YKRJ18:GBP",   "holdings_id": "GB00B4YKRJ18:GBP"},
+    {"name": "L&G PMC Japan Equity Index",               "id": "GB00B4ZFV486:GBP",   "holdings_id": "GB00B4ZFV486:GBP"},
+    {"name": "L&G PMC Asia Pac ex Japan Dev Eq",         "id": "GB00B4WT1Y33:GBP",   "holdings_id": "https://markets.ft.com/data/etfs/tearsheet/holdings?s=VAPX:LSE:GBP"},
+    {"name": "L&G Future World ESG Optimised UK Index",  "id": "GB00BJH4XW03:GBP",   "holdings_id": "GB00BJH4XW03:GBP"},
+    {"name": "Fidelity Funds - Latin America Fund W-Acc-GBP", "id": "LU1033664027:GBP", "holdings_id": "LU1033664027:GBP"},
+    {"name": "Fidelity Asia Fund W Acc",                 "id": "GB00B6Y7NF43:GBX",   "holdings_id": "GB00B6Y7NF43:GBX"},
+    {"name": "Fid Fil UK HSBC Islamic 0 GBP",            "id": "0P0001EWE2",          "holdings_id": "0P0001EWE2"},
+    {"name": "Blackrock ACS UK Equity Tracker Fund X1 GBP Acc",            "id": "GB00BYX7SS90:GBP",          "holdings_id": "GB00BYX7SS90:GBP"},
+    
 ]
 
 
@@ -87,6 +89,7 @@ YAHOO_TICKERS = [
     ("XAIX.L",      "X AI and Big Data UCITS ETF",      "ETF"),
     ("CSCA.L",      "iShares MSCI Canada UCITS ETF",    "ETF"),
     ("HMAF.L",      "HSBC MSCI AC Far East ex Japan",   "ETF"),
+    ("LGUK.L",      "L&G UK Equity UCITS ETF",   "ETF"),
 
     # ── ETFs — with holdings CSV import (4th element = provider) ────────────
     # iShares
@@ -94,6 +97,7 @@ YAHOO_TICKERS = [
     ("DFEU.L",      "iShares Europe Defence ETF",                   "ETF", "ishares"),
     ("IITU.L",      "iShares S&P 500 IT Sector UCITS ETF",          "ETF", "ishares"),
     ("IGLN.L",      "iShares Physical Gold ETC",                    "ETF", "ishares"),
+    ("SGLN.L",      "iShares Physical Gold GBP ETC",                    "ETF", "ishares"),
     ("ISLN.L",      "iShares Physical Silver ETC",                  "ETF", "ishares"),
     ("IUFS.L",      "iShares S&P 500 Financials ETF GBP",           "ETF", "ishares"),
     ("IUIT.L",      "iShares S&P 500 IT Sector UCITS ETF USD",      "ETF", "ishares"),
@@ -106,9 +110,9 @@ YAHOO_TICKERS = [
     ("SPAG.L",      "iShares Agribusiness ETF",                     "ETF", "ishares"),
     ("SPGP.L",      "iShares Gold Producers ETF",                   "ETF", "ishares"),
     ("UIFS.L",      "iShares S&P 500 Financials ETF",               "ETF", "ishares"),
-    ("RBOT.L",      "iShares Automation & Robotics UCITS ETF",               "ETF", "ishares"),
-    ("BTEC.L",      "iShares Nasdaq US Biotechnology UCITS ETF USD",               "ETF", "ishares"),
     ("BTEK.L",      "iShares Nasdaq US Biotechnology UCITS ETF GBP",               "ETF", "ishares"),
+    ("BTEC.L",      "iShares Nasdaq US Biotechnology UCITS ETF USD",               "ETF", "ishares"),
+    ("RBOT.L",      "iShares Automation & Robotics UCITS ETF",               "ETF", "ishares"),
     # VanEck  (parser TODO — CSV import will be enabled once parser is built)
     ("DFNG.L",      "VanEck Defence ETF (GBP)",                     "ETF", "vaneck"),
     ("NATP.L",      "VanEck NATO Defence ETF",                      "ETF", "vaneck"),
@@ -123,9 +127,14 @@ YAHOO_TICKERS = [
     ("FCBR.L",      "FT Nasdaq Clean Energy UCITS ETF",             "ETF", "fidelity"),
     # HANetf
     ("NATO.L",      "HANetf Future of Defence UCITS ETF",           "ETF", "hanetf"),
+    ("DR4M.L",      "HANetf Defiance Memory UCITS ETF GBP",           "ETF", "hanetf"),
     # Xtrackers / DWS
     ("XDWS.L",      "Xtrackers MSCI World Consumer Staples ETF",    "ETF", "xtrackers"),
-    ("XWFS.L",      "Xtrackers MSCI World Financials ETF",    "ETF", "xtrackers"),
+    ("XDWF.L",      "Xtrackers MSCI World Financials UCITS USD",    "ETF", "xtrackers"),
+    ("XWFS.L",      "Xtrackers MSCI World Financials UCITS GBP",    "ETF", "xtrackers"),
+    # Global X
+    ("GNOG.L",      "Global X Genomics & Biotechnology UCITS ETF",    "ETF", "globalx"),
+
 
     # ── Commodity ETCs ───────────────────────────────────────────────────────
     ("GC=F",        "Gold Futures",                     "Commodity"),
@@ -153,6 +162,8 @@ YAHOO_TICKERS = [
     ("NVDA",        "NVIDIA",                           "Stock"),
     ("MSFT",        "Microsoft Corporation",            "Stock"),
     ("SPGI",        "S&P Global Inc.",                  "Stock"),
+    ("MBGL",        "Mobility Global Inc.",             "Stock"),
+    ("MBGL-WI",        "Mobility Global Inc. WI",             "Stock"),
     ("ASML",        "ASML Holding",                     "Stock"),
     ("CRCL",        "Circle Internet Group",            "Stock"),
     ("QCOM",        "Qualcomm",                         "Stock"),
@@ -161,6 +172,8 @@ YAHOO_TICKERS = [
     ("JPM",         "JPMorgan Chase",                   "Stock"),
     ("NVO",         "Novo Nordisk",                     "Stock"),
     ("LLY",         "Eli Lilly",                        "Stock"),
+    ("LNG",         "Cheniere Energy Inc",            "Stock"),
+    ("NEM",         "Newmont Corporation",            "Stock"),
 
     # ── Individual Stocks — UK ───────────────────────────────────────────────
     ("GSK.L",       "GSK plc",                          "Stock"),
@@ -172,6 +185,7 @@ YAHOO_TICKERS = [
     ("CCH.L",       "Coca-Cola HBC",                    "Stock"),
     ("GRG.L",       "Greggs plc",                       "Stock"),
     ("BA.L",        "BAE Systems",                      "Stock"),
+    ("BHP.L",        "BHP Group Limited",               "Stock"),
 
     # ── Individual Stocks — Turkey ───────────────────────────────────────────
     ("SAHOL.IS",    "Sabanci Holding",                  "Stock"),
@@ -244,6 +258,7 @@ HOLDING_ACCOUNTS = {
     '0P0001EWE2':              'AB Pension',
     'COMPOSITE:HSBC_ASIA_PAC': 'AB Pension',
     'COMPOSITE:HSBC_EM':       'AB Pension',
+    'COMPOSITE:HSBC_UK_PASSIVE':       'AB Pension',
     'ASSET:HOUSE':             'HOUSE',
 }
 
@@ -312,4 +327,65 @@ COMPOSITE_FUNDS = [
             {"fund_id": "GB00B4WT1Y33:GBP", "weight": 1.00},  # L&G PMC Asia Pac ex Japan
         ],
     },
+    {
+        "fund_id": "COMPOSITE:HSBC_UK_PASSIVE",
+        "display_name": "HSBC Pension UK Passive",
+        "asset_type": "Fund",
+        "components": [
+            {"fund_id": "GB00BYX7SS90:GBP", "weight": 1.00},  # Blackrock ACS UK Equity Tracker Fund X1 GBP Acc
+        ],
+    },
 ]
+
+# ── ALLOWANCES TAB ─────────────────────────────────────────────────────────────
+
+ALLOWANCES_CURRENT_YEAR = '2026/27'
+
+ALLOWANCES_TAX_YEARS = ['2021/22', '2022/23', '2023/24', '2024/25', '2025/26', '2026/27', '2027/28']
+
+ALLOWANCES_JISA_YEARS = ['2023/24', '2024/25', '2025/26', '2026/27', '2027/28']
+
+ALLOWANCES_PENSION_LIMIT = {
+    '2021/22': 40000, '2022/23': 40000, '2023/24': 60000,
+    '2024/25': 60000, '2025/26': 60000, '2026/27': 60000, '2027/28': 60000,
+}
+
+ALLOWANCES_ISA_LIMIT  = 20000
+ALLOWANCES_JISA_LIMIT = 9000
+
+CAR_P11D = 59710
+CAR_BIK_RATES = {
+    '2026/27': 0.04,
+    '2027/28': 0.05,
+    '2028/29': 0.07,
+    '2029/30': 0.09,
+}
+
+ALLOWANCES_DEFAULT = {
+    'ahmet': {
+        '2021/22': {'salary': 0,      'bonus': 0, 'car_sacrifice': 0, 'employer_pension': 0, 'employee_pension': 30222, 'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 0, 'isa': 0},
+        '2022/23': {'salary': 0,      'bonus': 0, 'car_sacrifice': 0, 'employer_pension': 0, 'employee_pension': 23311, 'other_deductions': 0, 'sipp_done': 5000,  'sipp_future': 0, 'isa': 0},
+        '2023/24': {'salary': 125639, 'bonus': 0, 'car_sacrifice': 0, 'employer_pension': 0, 'employee_pension': 24461, 'other_deductions': 0, 'sipp_done': 15500, 'sipp_future': 0, 'isa': 0},
+        '2024/25': {'salary': 147854, 'bonus': 0, 'car_sacrifice': 0, 'employer_pension': 0, 'employee_pension': 38593, 'other_deductions': 0, 'sipp_done': 25000, 'sipp_future': 0, 'isa': 0},
+        '2025/26': {'salary': 127000, 'bonus': 23000, 'car_sacrifice': 0, 'employer_pension': 20611, 'employee_pension': 11430, 'other_deductions': 0, 'sipp_done': 30216, 'sipp_future': 0, 'isa': 0},
+        '2026/27': {'salary': 127000, 'bonus': 23000, 'car_sacrifice': 11040, 'employer_pension': 20611, 'employee_pension': 8159, 'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 27000, 'isa': 0},
+        '2027/28': {'salary': 127000, 'bonus': 23000, 'car_sacrifice': 11040, 'employer_pension': 20611, 'employee_pension': 8159, 'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 24950, 'isa': 0},
+    },
+    'burcu': {
+        '2021/22': {'salary': 0,      'bonus': 0, 'employer_pension': 0, 'employee_pension': 15640, 'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 0, 'isa': 0},
+        '2022/23': {'salary': 0,      'bonus': 0, 'employer_pension': 0, 'employee_pension': 14228, 'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 0, 'isa': 0},
+        '2023/24': {'salary': 0,      'bonus': 0, 'employer_pension': 0, 'employee_pension': 16470, 'other_deductions': 0, 'sipp_done': 12000, 'sipp_future': 0, 'isa': 0},
+        '2024/25': {'salary': 118744, 'bonus': 0, 'employer_pension': 0, 'employee_pension': 37428, 'other_deductions': 0, 'sipp_done': 8000,  'sipp_future': 0, 'isa': 0},
+        '2025/26': {'salary': 88164,  'bonus': 0, 'employer_pension': 0, 'employee_pension': 7600,  'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 0, 'isa': 0},
+        '2026/27': {'salary': 0,      'bonus': 0, 'employer_pension': 0, 'employee_pension': 0,     'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 0, 'isa': 0},
+        '2026/27': {'salary': 0,      'bonus': 0, 'employer_pension': 0, 'employee_pension': 0,     'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 0, 'isa': 0},
+        '2027/28': {'salary': 0,      'bonus': 0, 'employer_pension': 0, 'employee_pension': 0,     'other_deductions': 0, 'sipp_done': 0,     'sipp_future': 0, 'isa': 0},
+    },
+    'atlas': {
+        '2023/24': {'jisa': 9000, 'jisa_future': 0},
+        '2024/25': {'jisa': 9000, 'jisa_future': 0},
+        '2025/26': {'jisa': 9000, 'jisa_future': 0},
+        '2026/27': {'jisa': 9000,    'jisa_future': 0},
+        '2027/28': {'jisa': 0,    'jisa_future': 9000},
+    }
+}
